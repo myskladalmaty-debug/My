@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Каталог товаров — оптом</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --accent: #1f6feb;
+    --border: #e5e5e0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .lang-switch {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .lang-switch button {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .lang-switch button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .categories {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .categories button {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .categories button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .search {
+    margin-bottom: 16px;
+  }
+  .search input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--card-bg);
+    color: var(--text);
+  }
+  .result-count {
+    font-size: 13px;
+    color: var(--muted);
+    margin: -8px 0 16px;
+  }
+  .load-more {
+    display: block;
+    margin: 24px auto 0;
+    padding: 10px 24px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .load-more:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #eee;
+  }
+  .card-body {
+    padding: 12px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .card-body h3 {
+    margin: 0;
+    font-size: 15px;
+  }
+  .sku {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .desc {
+    font-size: 13px;
+    color: var(--muted);
+    flex: 1;
+    white-space: pre-line;
+    line-height: 1.5;
+  }
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 6px;
+  }
+  .price {
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .minqty {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stock {
+    font-size: 12px;
+  }
+  .stock.in { color: #1a7f37; }
+  .stock.out { color: #c62828; }
+  .empty, .loading {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+  }
+  .howtobuy {
+    margin-top: 40px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .howtobuy h2 {
+    margin-top: 0;
+    font-size: 18px;
+  }
+  .howtobuy ul {
+    padding-left: 20px;
+    margin: 10px 0;
+  }
+  .contacts {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .contacts a {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .contacts a.placeholder {
+    background: #999;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <h1 id="pageTitle"></h1>
+      <p id="pageSubtitle"></p>
+    </div>
+    <div class="lang-switch" id="langSwitch">
+      <button data-lang="ru">RU</button>
+      <button data-lang="kz">ҚАЗ</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="search">
+    <input type="text" id="search" />
+  </div>
+  <div class="categories" id="categories"></div>
+  <div class="result-count" id="resultCount"></div>
+  <div id="content" class="loading"></div>
+  <button class="load-more" id="loadMore" style="display:none;"></button>
+
+  <div class="howtobuy">
+    <h2 id="howToBuyTitle"></h2>
+    <ul id="howToBuySteps"></ul>
+
+    <!--
+      TODO: замените плейсхолдеры ниже на реальные контакты, когда будут готовы.
+      WhatsApp: ссылка вида https://wa.me/79991234567
+      Telegram: ссылка вида https://t.me/username
+      Телефон: ссылка вида tel:+79991234567
+    -->
+    <div class="contacts" id="contacts"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
