@@ -1,0 +1,30 @@
+{
+  "kind": "collectionType",
+  "collectionName": "categories",
+  "info": {
+    "singularName": "category",
+    "pluralName": "categories",
+    "displayName": "Категория",
+    "description": "Категории товаров оптового каталога"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name"
+    },
+    "products": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::product.product",
+      "mappedBy": "category"
+    }
+  }
+}
