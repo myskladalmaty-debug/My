@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "products",
+  "info": {
+    "singularName": "product",
+    "pluralName": "products",
+    "displayName": "Товар",
+    "description": "Товары оптового каталога"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "published": {
+      "type": "boolean",
+      "default": false
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name"
+    },
+    "sku": {
+      "type": "string",
+      "unique": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "wholesalePrice": {
+      "type": "decimal",
+      "default": 0
+    },
+    "costPrice": {
+      "type": "decimal",
+      "default": 0,
+      "private": true
+    },
+    "priceManuallySet": {
+      "type": "boolean",
+      "default": false,
+      "private": true
+    },
+    "minOrderQty": {
+      "type": "integer",
+      "default": 1
+    },
+    "stock": {
+      "type": "integer",
+      "default": 0
+    },
+    "images": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": ["images"]
+    },
+    "category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "products"
+    },
+    "moyskladId": {
+      "type": "string",
+      "private": true
+    }
+  }
+}
