@@ -84,20 +84,13 @@ function imageUrl(product) {
 }
 
 function productCardHtml(p) {
-  // Skip the separate "Артикул" line when the description already states the
-  // same SKU (our auto-generated descriptions always do) — avoids showing
-  // the same model number twice on one card.
-  const skuAlreadyInDescription = p.sku && p.description && p.description.includes(p.sku);
-
   return `
     <div class="card">
       ${imageUrl(p) ? `<img src="${imageUrl(p)}" alt="${p.name}" loading="lazy" />` : ''}
       <div class="card-body">
         <h3>${p.name}</h3>
-        ${p.sku && !skuAlreadyInDescription ? `<div class="sku">${t('articleLabel')}: ${p.sku}</div>` : ''}
         ${p.description ? `<div class="desc">${p.description}</div>` : ''}
         <div class="price-row">
-          <span class="price">${money(p.wholesalePrice)}</span>
           <span class="minqty">${t('fromQty', p.minOrderQty || 1)}</span>
         </div>
         <span class="stock ${p.stock > 0 ? 'in' : 'out'}">
