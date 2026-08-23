@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import * as XLSX from 'xlsx';
+import AdmZip from 'adm-zip';
 
 const MS_BASE = 'https://api.moysklad.ru/api/remap/1.2';
 
@@ -439,5 +441,155 @@ export default {
     }
 
     ctx.body = { updated, total: products.length, settings };
+  },
+
+  // Bulk-add products from an uploaded file — either a plain Excel/CSV
+  // spreadsheet (no photos), or a .zip containing the spreadsheet plus a
+  // folder of photos, matched to rows by the "Фото (имя файла)" column
+  // (same layout as the template: Название, Артикул, Описание, Опт. цена,
+  // Мин. партия шт, Остаток шт, Категория, Фото (имя файла)).
+  async importFile(ctx: any) {
+    if (!requireAuth(ctx)) return;
+
+    const file = ctx.request.files?.file;
+    if (!file) {
+      ctx.badRequest('Файл не найден в запросе (поле "file")');
+      return;
+    }
+
+    const originalName: string = file.originalFilename || file.name || '';
+    const isZip = originalName.toLowerCase().endsWith('.zip');
+
+    let sheetBuffer: Buffer;
+    // filename (lowercase, basename only) -> image bytes, only populated for zips
+    const imagesByName = new Map<string, Buffer>();
+
+    if (isZip) {
+      let zip: AdmZip;
+      try {
+        zip = new AdmZip(file.filepath);
+      } catch (err: any) {
+        ctx.badRequest('Не удалось открыть zip-архив: ' + err.message);
+        return;
+      }
+      const entries = zip.getEntries().filter((e) => !e.isDirectory);
+      const sheetEntry = entries.find((e) => /\.(xlsx|xls|csv)$/i.test(e.entryName));
+      if (!sheetEntry) {
+        ctx.badRequest('В архиве не найдена таблица (.xlsx/.xls/.csv)');
+        return;
+      }
+      sheetBuffer = sheetEntry.getData();
+
+      for (const entry of entries) {
+        if (/\.(jpe?g|png|webp|gif)$/i.test(entry.entryName)) {
+          const base = entry.entryName.split('/').pop()!.toLowerCase();
+          imagesByName.set(base, entry.getData());
+        }
+      }
+    } else {
+      sheetBuffer = fs.readFileSync(file.filepath);
+    }
+
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.read(sheetBuffer, { type: 'buffer' });
+    } catch (err: any) {
+      ctx.badRequest('Не удалось прочитать таблицу: ' + err.message);
+      return;
+    }
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    // Column names are matched loosely (trimmed, case-insensitive, a few
+    // known synonyms) so the template doesn't have to be followed exactly.
+    const norm = (s: string) => s.toString().trim().toLowerCase();
+    function pick(row: any, ...candidates: string[]): string {
+      const keys = Object.keys(row);
+      for (const candidate of candidates) {
+        const key = keys.find((k) => norm(k) === norm(candidate));
+        if (key && row[key] !== '') return String(row[key]).trim();
+      }
+      return '';
+    }
+
+    async function uploadImageBuffer(buffer: Buffer, filename: string): Promise<number | null> {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'file-img-'));
+      const filepath = path.join(tmpDir, filename);
+      fs.writeFileSync(filepath, buffer);
+      try {
+        const ext = path.extname(filename).toLowerCase();
+        const mime =
+          ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+        const uploadService = strapi.plugin('upload').service('upload');
+        const [uploaded]: any = await uploadService.upload({
+          data: {},
+          files: { filepath, originalFilename: filename, mimetype: mime, size: buffer.length },
+        });
+        return uploaded?.id ?? null;
+      } catch {
+        return null;
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+
+    const categoryCache = new Map<string, string>();
+    let created = 0;
+    let withPhoto = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowLabel = `строка ${i + 2}`; // +2: header row + 1-indexed
+      try {
+        const name = pick(row, 'Название', 'Name', 'Товар');
+        if (!name) continue; // skip blank/example rows silently
+
+        const sku = pick(row, 'Артикул', 'SKU', 'Sku') || null;
+        const description = pick(row, 'Описание', 'Description') || null;
+        const priceRaw = pick(row, 'Опт. цена', 'Опт цена', 'Цена', 'Price');
+        const minQtyRaw = pick(row, 'Мин. партия, шт', 'Мин. партия', 'Мин партия');
+        const stockRaw = pick(row, 'Остаток, шт', 'Остаток', 'Наличие', 'Stock');
+        const categoryName = pick(row, 'Категория', 'Category');
+        const photoName = pick(row, 'Фото (имя файла)', 'Фото', 'Photo', 'Image');
+
+        const wholesalePrice = parseFloat(priceRaw.replace(',', '.')) || 0;
+        const minOrderQty = parseInt(minQtyRaw, 10) || 1;
+        const stock = parseInt(stockRaw, 10) || 0;
+        const categoryId = categoryName ? await findOrCreateCategoryId(categoryName, categoryCache) : null;
+
+        const data: any = {
+          name,
+          sku,
+          description,
+          wholesalePrice,
+          minOrderQty,
+          stock,
+          published: stock > 0,
+          category: categoryId,
+        };
+
+        if (photoName) {
+          const imageBuffer = imagesByName.get(photoName.toLowerCase());
+          if (imageBuffer) {
+            const imageId = await uploadImageBuffer(imageBuffer, photoName);
+            if (imageId) {
+              data.images = [imageId];
+              withPhoto += 1;
+            }
+          } else if (isZip) {
+            errors.push(`${rowLabel}: фото "${photoName}" не найдено в архиве (товар всё равно создан)`);
+          }
+        }
+
+        await strapi.documents('api::product.product').create({ data } as any);
+        created += 1;
+      } catch (err: any) {
+        errors.push(`${rowLabel}: ${err.message || err}`);
+      }
+    }
+
+    ctx.body = { totalRows: rows.length, created, withPhoto, errors };
   },
 };
