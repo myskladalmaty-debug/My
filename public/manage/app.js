@@ -75,6 +75,11 @@ const translations = {
     pricingApplying: 'Применяю…',
     pricingApplied: (n) => `Готово — обновлено цен: ${n}`,
     pricingSaved: 'Настройки сохранены',
+    importFileBtn: '📄 Загрузить из файла',
+    importFileHint: 'Excel/CSV — только текст. ZIP-архив (таблица + папка с фото) — с фото.',
+    importingFile: 'Загружаю…',
+    importFileDone: (created, total, withPhoto) => `Готово: добавлено ${created} из ${total} строк (с фото: ${withPhoto})`,
+    importFileError: 'Не удалось загрузить файл',
   },
   kz: {
     loginSubtitle: 'Тауарларды басқаруға арналған қарапайым кабинет',
@@ -147,6 +152,11 @@ const translations = {
     pricingApplying: 'Қолданылуда…',
     pricingApplied: (n) => `Дайын — жаңартылған бағалар: ${n}`,
     pricingSaved: 'Баптаулар сақталды',
+    importFileBtn: '📄 Файлдан жүктеу',
+    importFileHint: 'Excel/CSV — тек мәтін. ZIP-архив (кесте + фото қалтасы) — фотомен.',
+    importingFile: 'Жүктелуде…',
+    importFileDone: (created, total, withPhoto) => `Дайын: ${total} жолдан ${created} қосылды (фотомен: ${withPhoto})`,
+    importFileError: 'Файлды жүктеу мүмкін болмады',
   },
 };
 
@@ -195,6 +205,8 @@ function applyStaticText() {
   document.getElementById('loginBtn').textContent = t('loginBtn');
   document.getElementById('logoutBtn').textContent = t('logoutBtn');
   document.getElementById('addBtn').textContent = t('addBtn');
+  document.getElementById('importFileBtn').textContent = t('importFileBtn');
+  document.getElementById('importFileHint').textContent = t('importFileHint');
   document.getElementById('l_paste').textContent = t('l_paste');
   document.getElementById('pasteHint').textContent = t('pasteHint');
   document.getElementById('l_name').textContent = t('l_name');
@@ -556,6 +568,49 @@ function renderPhotoPreview(urls) {
   el.innerHTML = urls.map(u => `<img src="${u}" />`).join('');
 }
 
+// ---------- Import products from Excel/CSV file ----------
+
+function setupImportFile() {
+  const btn = document.getElementById('importFileBtn');
+  const input = document.getElementById('importFileInput');
+
+  btn.addEventListener('click', () => input.click());
+
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = t('importingFile');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(API_BASE + '/api/manage/import-file', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error?.message || 'failed');
+
+      showToast(t('importFileDone', result.created, result.totalRows, result.withPhoto || 0));
+      if (result.errors?.length) {
+        console.error('Import file errors:', result.errors);
+      }
+      loadProducts();
+    } catch (e) {
+      console.error(e);
+      showToast(t('importFileError'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      input.value = '';
+    }
+  });
+}
+
 // ---------- Pricing algorithm settings ----------
 
 let pricingCoverageCount = 0;
@@ -804,6 +859,7 @@ function init() {
   document.getElementById('productForm').addEventListener('submit', saveProduct);
   setupPasteAutofill();
   setupPricing();
+  setupImportFile();
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
