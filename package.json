@@ -20,6 +20,7 @@
     "@strapi/plugin-users-permissions": "5.52.1",
     "@strapi/provider-upload-aws-s3": "^5.52.1",
     "@strapi/strapi": "5.52.1",
+    "adm-zip": "^0.6.0",
     "aws-sdk": "^2.1693.0",
     "better-sqlite3": "12.8.0",
     "jsonwebtoken": "^9.0.3",
@@ -27,9 +28,11 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.30.3",
-    "styled-components": "^6.0.0"
+    "styled-components": "^6.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
