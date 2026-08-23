@@ -288,6 +288,7 @@ export default {
       const existing: any = await strapi.documents('api::product.product').findMany({
         filters: { moyskladId: row.id },
         pagination: { pageSize: 1 },
+        populate: ['images'],
       } as any);
 
       // Out of stock: don't bother creating it (skips the photo download
@@ -312,6 +313,16 @@ export default {
         const updateData: any = { stock, minOrderQty, costPrice, published: true };
         if (!existing[0].description || !existing[0].description.trim()) {
           updateData.description = row.description || buildAutoDescription(minOrderQty);
+        }
+        // Backfill the photo if it's missing OR still points at the old
+        // local-disk storage (a broken /uploads/... path — that file only
+        // ever existed on the one machine that originally downloaded it,
+        // before Supabase Storage was set up as shared storage).
+        const currentImageUrl: string | undefined = existing[0].images?.[0]?.url;
+        const hasWorkingImage = currentImageUrl && !currentImageUrl.startsWith('/uploads');
+        if (!hasWorkingImage && withImages && row.images?.meta?.size > 0) {
+          const imageId = await importProductImage(row.id, token!);
+          if (imageId) updateData.images = [imageId];
         }
         await strapi.documents('api::product.product').update({
           documentId: existing[0].documentId,
