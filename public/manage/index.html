@@ -380,8 +380,13 @@
 
     <div class="toolbar">
       <div id="countLabel" style="color: var(--muted); font-size: 14px;"></div>
-      <button class="add-btn" id="addBtn"></button>
+      <div style="display:flex; gap:8px;">
+        <button class="add-btn" id="importFileBtn" style="background:#fff; color:var(--accent); border:1px solid var(--accent);"></button>
+        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv,.zip" class="hidden" />
+        <button class="add-btn" id="addBtn"></button>
+      </div>
     </div>
+    <div class="hint" id="importFileHint" style="margin-top:-10px;"></div>
 
     <div class="bulk-bar hidden" id="bulkBar">
       <span id="bulkCount"></span>
