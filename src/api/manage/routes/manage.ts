@@ -12,5 +12,6 @@ export default {
     { method: 'GET', path: '/manage/pricing-settings', handler: 'manage.getPricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/pricing-settings', handler: 'manage.savePricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/apply-pricing', handler: 'manage.applyPricing', config: { auth: false } },
+    { method: 'POST', path: '/manage/import-file', handler: 'manage.importFile', config: { auth: false } },
   ],
 };
