@@ -277,63 +277,93 @@ export default {
     let updated = 0;
     const errors: string[] = [];
 
-    for (const row of rows) {
-      try {
-        const stock = stockMap[row.id] ?? 0;
-        const minOrderQty = row.packs?.[0]?.quantity || 1;
-        const costPrice = (row.buyPrice?.value ?? 0) / 100;
+    let skipped = 0;
+    let deleted = 0;
 
-        const existing: any = await strapi.documents('api::product.product').findMany({
-          filters: { moyskladId: row.id },
-          pagination: { pageSize: 1 },
-        } as any);
+    async function processRow(row: any) {
+      const stock = stockMap[row.id] ?? 0;
+      const minOrderQty = row.packs?.[0]?.quantity || 1;
+      const costPrice = (row.buyPrice?.value ?? 0) / 100;
+
+      const existing: any = await strapi.documents('api::product.product').findMany({
+        filters: { moyskladId: row.id },
+        pagination: { pageSize: 1 },
+      } as any);
+
+      // Out of stock: don't bother creating it (skips the photo download
+      // too — no point spending time on a product we won't show), and if
+      // it was already imported before but is now out of stock, remove it.
+      if (stock <= 0) {
         if (existing?.length) {
-          // Already imported — just refresh stock/pack size/cost in case
-          // MoySklad data changed or this field wasn't captured on an
-          // earlier run. Only fill in description if it's still empty, so
-          // we never overwrite something the admin already wrote by hand.
-          const updateData: any = { stock, minOrderQty, costPrice };
-          if (!existing[0].description || !existing[0].description.trim()) {
-            updateData.description = row.description || buildAutoDescription(minOrderQty);
-          }
-          await strapi.documents('api::product.product').update({
-            documentId: existing[0].documentId,
-            data: updateData,
-          } as any);
-          updated += 1;
-          continue;
+          await strapi.documents('api::product.product').delete({ documentId: existing[0].documentId } as any);
+          deleted += 1;
+        } else {
+          skipped += 1;
         }
-
-        const categoryId = row.pathName
-          ? await findOrCreateCategoryId(row.pathName.split('/').filter(Boolean).pop() || '', categoryCache)
-          : null;
-
-        const priceMinor = row.salePrices?.[0]?.value ?? 0;
-        const sku = row.article || row.code || null;
-
-        const data: any = {
-          name: row.name,
-          sku,
-          description: row.description || buildAutoDescription(minOrderQty),
-          wholesalePrice: priceMinor / 100,
-          costPrice,
-          minOrderQty,
-          stock,
-          published: false,
-          moyskladId: row.id,
-          category: categoryId,
-        };
-
-        if (withImages && row.images?.meta?.size > 0) {
-          const imageId = await importProductImage(row.id, token);
-          if (imageId) data.images = [imageId];
-        }
-
-        await strapi.documents('api::product.product').create({ data } as any);
-        imported += 1;
-      } catch (err: any) {
-        errors.push(`${row.name || row.id}: ${err.message || err}`);
+        return;
       }
+
+      if (existing?.length) {
+        // Already imported — just refresh stock/pack size/cost in case
+        // MoySklad data changed or this field wasn't captured on an
+        // earlier run. Only fill in description if it's still empty, so
+        // we never overwrite something the admin already wrote by hand.
+        // In stock -> published, so it's visible on the storefront.
+        const updateData: any = { stock, minOrderQty, costPrice, published: true };
+        if (!existing[0].description || !existing[0].description.trim()) {
+          updateData.description = row.description || buildAutoDescription(minOrderQty);
+        }
+        await strapi.documents('api::product.product').update({
+          documentId: existing[0].documentId,
+          data: updateData,
+        } as any);
+        updated += 1;
+        return;
+      }
+
+      const categoryId = row.pathName
+        ? await findOrCreateCategoryId(row.pathName.split('/').filter(Boolean).pop() || '', categoryCache)
+        : null;
+
+      const priceMinor = row.salePrices?.[0]?.value ?? 0;
+      const sku = row.article || row.code || null;
+
+      const data: any = {
+        name: row.name,
+        sku,
+        description: row.description || buildAutoDescription(minOrderQty),
+        wholesalePrice: priceMinor / 100,
+        costPrice,
+        minOrderQty,
+        stock,
+        published: true, // reaching this point already means stock > 0
+        moyskladId: row.id,
+        category: categoryId,
+      };
+
+      if (withImages && row.images?.meta?.size > 0) {
+        const imageId = await importProductImage(row.id, token!);
+        if (imageId) data.images = [imageId];
+      }
+
+      await strapi.documents('api::product.product').create({ data } as any);
+      imported += 1;
+    }
+
+    // Process several products concurrently — most of the time per product
+    // is spent waiting on network round-trips (MoySklad + Supabase), so
+    // running a handful in parallel cuts wall-clock time a lot without
+    // overwhelming either API.
+    const CONCURRENCY = 5;
+    for (let i = 0; i < rows.length; i += CONCURRENCY) {
+      const chunk = rows.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        chunk.map((row: any) =>
+          processRow(row).catch((err: any) => {
+            errors.push(`${row.name || row.id}: ${err.message || err}`);
+          })
+        )
+      );
     }
 
     ctx.body = {
@@ -343,6 +373,8 @@ export default {
       processed: rows.length,
       imported,
       updated,
+      skipped,
+      deleted,
       errors,
       nextOffset: offset + rows.length < total ? offset + rows.length : null,
     };
