@@ -67,6 +67,10 @@
     "moyskladId": {
       "type": "string",
       "private": true
+    },
+    "isNew": {
+      "type": "boolean",
+      "default": false
     }
   }
 }
