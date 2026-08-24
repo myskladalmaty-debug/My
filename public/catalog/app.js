@@ -11,6 +11,7 @@ const translations = {
     pageSubtitle: 'Оптовая продажа — цены и минимальные партии указаны у каждого товара',
     searchPlaceholder: 'Поиск по названию или артикулу…',
     allCategories: 'Все',
+    newFilter: '🆕 Новинки',
     resultCount: (n) => `Найдено товаров: ${n}`,
     loading: 'Загрузка каталога…',
     loadingMore: 'Загрузка…',
@@ -20,6 +21,7 @@ const translations = {
     errorLoad: 'Не удалось загрузить каталог. Попробуйте обновить страницу.',
     inStock: 'В наличии',
     outStock: 'Под заказ',
+    badgeNew: 'Новинка',
     fromQty: (n) => `от ${n} шт.`,
     articleLabel: 'Артикул',
     howToBuyTitle: 'Как купить',
@@ -36,6 +38,7 @@ const translations = {
     pageSubtitle: 'Көтерме сату — әр тауарда бағасы және ең аз партия саны көрсетілген',
     searchPlaceholder: 'Атауы немесе артикулы бойынша іздеу…',
     allCategories: 'Барлығы',
+    newFilter: '🆕 Жаңалар',
     resultCount: (n) => `Табылған тауарлар: ${n}`,
     loading: 'Каталог жүктелуде…',
     loadingMore: 'Жүктелуде…',
@@ -45,6 +48,7 @@ const translations = {
     errorLoad: 'Каталогты жүктеу мүмкін болмады. Бетті жаңартып көріңіз.',
     inStock: 'Бар',
     outStock: 'Тапсырыс бойынша',
+    badgeNew: 'Жаңа',
     fromQty: (n) => `${n} даннан бастап`,
     articleLabel: 'Артикул',
     howToBuyTitle: 'Қалай сатып алуға болады',
@@ -86,6 +90,7 @@ function imageUrl(product) {
 function productCardHtml(p) {
   return `
     <div class="card">
+      ${p.isNew ? `<span class="badge-new">${t('badgeNew')}</span>` : ''}
       ${imageUrl(p) ? `<img src="${imageUrl(p)}" alt="${p.name}" loading="lazy" />` : ''}
       <div class="card-body">
         <h3>${p.name}</h3>
@@ -106,10 +111,15 @@ function buildProductsUrl(page) {
   params.set('populate', '*');
   params.set('pagination[page]', page);
   params.set('pagination[pageSize]', PAGE_SIZE);
-  params.set('sort', 'name:asc');
   params.set('filters[published][$eq]', 'true');
-  if (activeCategory) {
-    params.set('filters[category][id][$eq]', activeCategory);
+  if (activeCategory === 'new') {
+    params.set('sort', 'createdAt:desc');
+    params.set('filters[isNew][$eq]', 'true');
+  } else {
+    params.set('sort', 'name:asc');
+    if (activeCategory) {
+      params.set('filters[category][id][$eq]', activeCategory);
+    }
   }
   if (searchQuery) {
     params.set('filters[$or][0][name][$containsi]', searchQuery);
@@ -168,15 +178,18 @@ async function loadProducts(reset) {
 
 function renderCategories() {
   const el = document.getElementById('categories');
-  if (!allCategories.length) return;
-  const buttons = [{ id: null, name: t('allCategories') }, ...allCategories];
+  const buttons = [
+    { id: null, name: t('allCategories') },
+    { id: 'new', name: t('newFilter') },
+    ...allCategories,
+  ];
   el.innerHTML = buttons.map(c => `
     <button data-id="${c.id}" class="${activeCategory === c.id ? 'active' : ''}">${c.name}</button>
   `).join('');
   el.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
-      activeCategory = id === 'null' ? null : Number(id);
+      activeCategory = id === 'null' ? null : id === 'new' ? 'new' : Number(id);
       el.querySelectorAll('button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       loadProducts(true);
