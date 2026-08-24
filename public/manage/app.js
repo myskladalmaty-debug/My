@@ -38,6 +38,8 @@ const translations = {
     l_stock: 'Остаток, шт (наличие)',
     l_photo: 'Фото',
     l_published: 'Опубликован (виден клиентам в каталоге)',
+    l_isNew: 'Новинка (отмечен в каталоге как новый товар)',
+    badgeNew: 'Новинка',
     moreShow: '+ Ещё поля (артикул, цена, категория)',
     moreHide: '– Скрыть дополнительные поля',
     cancel: 'Отмена',
@@ -59,9 +61,12 @@ const translations = {
     chipNoPhoto: 'Без фото',
     chipNoPrice: 'Без цены',
     chipNoDescription: 'Без описания',
+    chipNew: 'Новинки',
     bulkSelectedCount: (n) => `Выбрано: ${n}`,
     bulkPublish: 'Опубликовать',
     bulkUnpublish: 'Снять с публикации',
+    bulkDelete: 'Удалить',
+    bulkConfirmDelete: (n) => `Удалить выбранные товары (${n} шт.)? Это нельзя отменить.`,
     bulkDeselect: 'Отменить выбор',
     pricingTitle: 'Настройки алгоритма цены',
     pricingHint: 'Опт. цена считается по формуле: себестоимость + наценка, с округлением вверх.',
@@ -75,10 +80,14 @@ const translations = {
     pricingApplying: 'Применяю…',
     pricingApplied: (n) => `Готово — обновлено цен: ${n}`,
     pricingSaved: 'Настройки сохранены',
+    syncMoyskladBtn: '🔄 Синхронизировать с МойСклад',
+    syncingMoysklad: (n) => `Синхронизация… (${n})`,
+    syncMoyskladDone: (imported, updated, deleted) => `Готово: добавлено ${imported}, обновлено ${updated}, удалено ${deleted}`,
+    syncMoyskladError: 'Не удалось синхронизировать с МойСклад',
     importFileBtn: '📄 Загрузить из файла',
     importFileHint: 'Excel/CSV — только текст. ZIP-архив (таблица + папка с фото) — с фото.',
     importingFile: 'Загружаю…',
-    importFileDone: (created, total, withPhoto) => `Готово: добавлено ${created} из ${total} строк (с фото: ${withPhoto})`,
+    importFileDone: (created, total, withPhoto) => `Готово: добавлено ${created} из ${total} строк (с фото: ${withPhoto}). Товары — черновики, проверьте и опубликуйте вручную.`,
     importFileError: 'Не удалось загрузить файл',
   },
   kz: {
@@ -115,6 +124,8 @@ const translations = {
     l_stock: 'Қалдық, дана (бар-жоғы)',
     l_photo: 'Фото',
     l_published: 'Жарияланды (клиенттерге каталогта көрінеді)',
+    l_isNew: 'Жаңа тауар (каталогта жаңа деп белгіленеді)',
+    badgeNew: 'Жаңа',
     moreShow: '+ Қосымша өрістер (артикул, баға, санат)',
     moreHide: '– Қосымша өрістерді жасыру',
     cancel: 'Бас тарту',
@@ -136,9 +147,12 @@ const translations = {
     chipNoPhoto: 'Фотосыз',
     chipNoPrice: 'Бағасыз',
     chipNoDescription: 'Сипаттамасыз',
+    chipNew: 'Жаңалар',
     bulkSelectedCount: (n) => `Таңдалды: ${n}`,
     bulkPublish: 'Жариялау',
     bulkUnpublish: 'Жариялаудан алу',
+    bulkDelete: 'Жою',
+    bulkConfirmDelete: (n) => `Таңдалған тауарларды жою керек пе (${n} дана)? Бұны қайтару мүмкін емес.`,
     bulkDeselect: 'Таңдауды болдырмау',
     pricingTitle: 'Баға алгоритмінің баптаулары',
     pricingHint: 'Көтерме баға формула бойынша есептеледі: өзіндік құн + үстеме баға, жоғары дөңгелектеп.',
@@ -152,10 +166,14 @@ const translations = {
     pricingApplying: 'Қолданылуда…',
     pricingApplied: (n) => `Дайын — жаңартылған бағалар: ${n}`,
     pricingSaved: 'Баптаулар сақталды',
+    syncMoyskladBtn: '🔄 МойСклад-пен синхрондау',
+    syncingMoysklad: (n) => `Синхрондалуда… (${n})`,
+    syncMoyskladDone: (imported, updated, deleted) => `Дайын: қосылды ${imported}, жаңартылды ${updated}, жойылды ${deleted}`,
+    syncMoyskladError: 'МойСклад-пен синхрондау мүмкін болмады',
     importFileBtn: '📄 Файлдан жүктеу',
     importFileHint: 'Excel/CSV — тек мәтін. ZIP-архив (кесте + фото қалтасы) — фотомен.',
     importingFile: 'Жүктелуде…',
-    importFileDone: (created, total, withPhoto) => `Дайын: ${total} жолдан ${created} қосылды (фотомен: ${withPhoto})`,
+    importFileDone: (created, total, withPhoto) => `Дайын: ${total} жолдан ${created} қосылды (фотомен: ${withPhoto}). Тауарлар — жоба, тексеріп, қолмен жариялаңыз.`,
     importFileError: 'Файлды жүктеу мүмкін болмады',
   },
 };
@@ -207,6 +225,7 @@ function applyStaticText() {
   document.getElementById('addBtn').textContent = t('addBtn');
   document.getElementById('importFileBtn').textContent = t('importFileBtn');
   document.getElementById('importFileHint').textContent = t('importFileHint');
+  document.getElementById('syncMoyskladBtn').textContent = t('syncMoyskladBtn');
   document.getElementById('l_paste').textContent = t('l_paste');
   document.getElementById('pasteHint').textContent = t('pasteHint');
   document.getElementById('l_name').textContent = t('l_name');
@@ -218,6 +237,7 @@ function applyStaticText() {
   document.getElementById('l_stock').textContent = t('l_stock');
   document.getElementById('l_photo').textContent = t('l_photo');
   document.getElementById('l_published').textContent = t('l_published');
+  document.getElementById('l_isNew').textContent = t('l_isNew');
   document.getElementById('cancelBtn').textContent = t('cancel');
   document.getElementById('saveBtn').textContent = t('save');
   document.getElementById('modalTitle').textContent = editingId ? t('modalTitleEdit') : t('modalTitleNew');
@@ -330,6 +350,7 @@ const FILTERS = {
   noPhoto: p => !(p.images && p.images.length),
   noPrice: p => !((p.wholesalePrice ?? 0) > 0),
   noDescription: p => !(p.description && p.description.trim()),
+  isNew: p => !!p.isNew,
 };
 
 function filteredProducts() {
@@ -384,6 +405,7 @@ function renderChips() {
   const noPhotoCount = products.filter(FILTERS.noPhoto).length;
   const noPriceCount = products.filter(FILTERS.noPrice).length;
   const noDescriptionCount = products.filter(FILTERS.noDescription).length;
+  const isNewCount = products.filter(FILTERS.isNew).length;
 
   const chips = [
     ['draft', t('chipDraft'), draftCount],
@@ -391,6 +413,7 @@ function renderChips() {
     ['noPhoto', t('chipNoPhoto'), noPhotoCount],
     ['noPrice', t('chipNoPrice'), noPriceCount],
     ['noDescription', t('chipNoDescription'), noDescriptionCount],
+    ['isNew', t('chipNew'), isNewCount],
   ];
 
   document.getElementById('chips').innerHTML = chips.map(([key, label, count]) => `
@@ -412,6 +435,7 @@ function renderBulkBar() {
   document.getElementById('bulkCount').textContent = t('bulkSelectedCount', selected.size);
   document.getElementById('bulkPublishBtn').textContent = t('bulkPublish');
   document.getElementById('bulkUnpublishBtn').textContent = t('bulkUnpublish');
+  document.getElementById('bulkDeleteBtn').textContent = t('bulkDelete');
   document.getElementById('bulkDeselectBtn').textContent = t('bulkDeselect');
 }
 
@@ -454,7 +478,7 @@ function renderTable() {
         ${list.map(p => `
           <tr>
             <td class="row-check"><input type="checkbox" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} /></td>
-            <td>${p.name}</td>
+            <td>${p.name}${p.isNew ? ` <span class="badge new">${t('badgeNew')}</span>` : ''}</td>
             <td>${money(p.wholesalePrice)}</td>
             <td>${p.stock ?? 0} шт.</td>
             <td><span class="badge ${p.published ? 'on' : 'off'}">${p.published ? t('published') : t('draft')}</span></td>
@@ -526,6 +550,41 @@ async function bulkSetPublished(publishedValue) {
   loadProducts();
 }
 
+async function bulkDeleteSelected() {
+  const ids = [...selected];
+  if (!ids.length) return;
+  if (!confirm(t('bulkConfirmDelete', ids.length))) return;
+
+  const btn = document.getElementById('bulkDeleteBtn');
+  const originalText = btn.textContent;
+  let done = 0;
+  btn.disabled = true;
+
+  const CONCURRENCY = 5;
+  let index = 0;
+  async function worker() {
+    while (index < ids.length) {
+      const id = ids[index++];
+      try {
+        await fetch(API_BASE + '/api/manage/products/' + id, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        });
+      } catch (e) {
+        console.error('bulk delete failed for', id, e);
+      }
+      done += 1;
+      btn.textContent = `${originalText} (${done}/${ids.length})`;
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  btn.disabled = false;
+  selected.clear();
+  showToast(t('toastDeleted'));
+  loadProducts();
+}
+
 // ---------- Modal / form ----------
 
 let nameAutoFilled = false;
@@ -569,6 +628,56 @@ function renderPhotoPreview(urls) {
 }
 
 // ---------- Import products from Excel/CSV file ----------
+
+async function syncMoysklad() {
+  const btn = document.getElementById('syncMoyskladBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+
+  let offset = 0;
+  let imported = 0;
+  let updated = 0;
+  let deleted = 0;
+  const errors = [];
+
+  try {
+    while (true) {
+      btn.textContent = t('syncingMoysklad', imported + updated);
+      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=50`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error?.message || 'failed');
+
+      imported += result.imported || 0;
+      updated += result.updated || 0;
+      deleted += result.deleted || 0;
+      if (result.errors?.length) errors.push(...result.errors);
+
+      if (result.nextOffset === null || result.nextOffset === undefined) break;
+      offset = result.nextOffset;
+    }
+
+    // Recompute wholesale prices for anything newly imported (skips
+    // products already priced by hand).
+    await fetch(API_BASE + '/api/manage/apply-pricing', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    showToast(t('syncMoyskladDone', imported, updated, deleted));
+    if (errors.length) console.error('MoySklad sync errors:', errors);
+    loadProducts();
+  } catch (e) {
+    console.error(e);
+    showToast(t('syncMoyskladError'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
 
 function setupImportFile() {
   const btn = document.getElementById('importFileBtn');
@@ -718,6 +827,7 @@ function openModal(documentId) {
   document.getElementById('f_minqty').value = p?.minOrderQty ?? 1;
   document.getElementById('f_stock').value = p?.stock ?? 0;
   document.getElementById('f_published').checked = !!p?.published;
+  document.getElementById('f_isNew').checked = !!p?.isNew;
 
   // New product: name isn't set yet, so pasting the description auto-fills it.
   // Editing: the name already exists, don't overwrite it from paste.
@@ -794,6 +904,7 @@ async function saveProduct(e) {
       minOrderQty: parseInt(document.getElementById('f_minqty').value, 10) || 1,
       stock: parseInt(document.getElementById('f_stock').value, 10) || 0,
       published: document.getElementById('f_published').checked,
+      isNew: document.getElementById('f_isNew').checked,
       category: categoryId,
     };
 
@@ -860,6 +971,7 @@ function init() {
   setupPasteAutofill();
   setupPricing();
   setupImportFile();
+  document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
@@ -871,6 +983,7 @@ function init() {
   });
   document.getElementById('bulkPublishBtn').addEventListener('click', () => bulkSetPublished(true));
   document.getElementById('bulkUnpublishBtn').addEventListener('click', () => bulkSetPublished(false));
+  document.getElementById('bulkDeleteBtn').addEventListener('click', () => bulkDeleteSelected());
   document.getElementById('bulkDeselectBtn').addEventListener('click', () => {
     selected.clear();
     renderTable();
