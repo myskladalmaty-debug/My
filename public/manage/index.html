@@ -165,6 +165,7 @@
   }
   .badge.on { background: #e3f5e6; color: #1a7f37; }
   .badge.off { background: #f0f0ee; color: var(--muted); }
+  .badge.new { background: #fff2cc; color: #8a6d00; }
   .row-actions button {
     border: none;
     background: none;
@@ -337,6 +338,11 @@
     color: #fff;
     border: none;
   }
+  .bulk-btn.del {
+    background: #fff;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
   .bulk-btn.link {
     border: none;
     background: none;
@@ -381,6 +387,7 @@
     <div class="toolbar">
       <div id="countLabel" style="color: var(--muted); font-size: 14px;"></div>
       <div style="display:flex; gap:8px;">
+        <button class="add-btn" id="syncMoyskladBtn" style="background:#fff; color:var(--accent); border:1px solid var(--accent);"></button>
         <button class="add-btn" id="importFileBtn" style="background:#fff; color:var(--accent); border:1px solid var(--accent);"></button>
         <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv,.zip" class="hidden" />
         <button class="add-btn" id="addBtn"></button>
@@ -392,6 +399,7 @@
       <span id="bulkCount"></span>
       <button id="bulkPublishBtn" class="bulk-btn publish"></button>
       <button id="bulkUnpublishBtn" class="bulk-btn"></button>
+      <button id="bulkDeleteBtn" class="bulk-btn del"></button>
       <button id="bulkDeselectBtn" class="bulk-btn link"></button>
     </div>
 
@@ -451,6 +459,10 @@
       <div class="field checkbox">
         <input type="checkbox" id="f_published" />
         <label for="f_published" id="l_published" style="margin-bottom:0;"></label>
+      </div>
+      <div class="field checkbox">
+        <input type="checkbox" id="f_isNew" />
+        <label for="f_isNew" id="l_isNew" style="margin-bottom:0;"></label>
       </div>
       <div class="modal-actions">
         <button type="button" id="cancelBtn"></button>
