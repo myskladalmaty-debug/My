@@ -463,6 +463,11 @@ export default {
     let sheetBuffer: Buffer;
     // filename (lowercase, basename only) -> image bytes, only populated for zips
     const imagesByName = new Map<string, Buffer>();
+    // 0-indexed sheet row (matching XLSX.utils.sheet_to_json's row order, i.e.
+    // data row i sits at sheet row i+1) -> image bytes. Populated for plain
+    // .xlsx files that have pictures pasted directly into cells (common in
+    // supplier/factory packing lists) rather than a "photo filename" column.
+    const embeddedImagesByRow = new Map<number, { buffer: Buffer; ext: string }>();
 
     if (isZip) {
       let zip: AdmZip;
@@ -488,6 +493,48 @@ export default {
       }
     } else {
       sheetBuffer = fs.readFileSync(file.filepath);
+
+      // A plain .xlsx is itself a zip container. If pictures were pasted
+      // directly into cells (not referenced by a filename column), pull them
+      // out of xl/media + xl/drawings and figure out which row each one sits
+      // next to, so we can still attach a photo per product.
+      if (/\.xlsx$/i.test(originalName)) {
+        try {
+          const xlsxZip = new AdmZip(file.filepath);
+          const drawingEntry = xlsxZip
+            .getEntries()
+            .find((e) => /^xl\/drawings\/drawing\d+\.xml$/i.test(e.entryName));
+          if (drawingEntry) {
+            const drawingName = drawingEntry.entryName.split('/').pop()!;
+            const relsEntry = xlsxZip.getEntry(`xl/drawings/_rels/${drawingName}.rels`);
+            const relMap = new Map<string, string>(); // rId -> xl/media/imageN.ext
+            if (relsEntry) {
+              const relsXml = relsEntry.getData().toString('utf8');
+              for (const m of relsXml.matchAll(/Id="(rId\d+)"[^>]*Target="\.\.\/([^"]+)"/g)) {
+                relMap.set(m[1], `xl/${m[2]}`);
+              }
+            }
+            const drawingXml = drawingEntry.getData().toString('utf8');
+            const anchorRegex = /<xdr:(?:twoCellAnchor|oneCellAnchor)\b[\s\S]*?<xdr:row>(\d+)<\/xdr:row>[\s\S]*?r:embed="(rId\d+)"[\s\S]*?<\/xdr:(?:twoCellAnchor|oneCellAnchor)>/g;
+            for (const m of drawingXml.matchAll(anchorRegex)) {
+              const sheetRow = parseInt(m[1], 10); // 0-indexed, includes header row
+              const target = relMap.get(m[2]);
+              if (target) {
+                const mediaEntry = xlsxZip.getEntry(target);
+                if (mediaEntry) {
+                  embeddedImagesByRow.set(sheetRow, {
+                    buffer: mediaEntry.getData(),
+                    ext: path.extname(target) || '.png',
+                  });
+                }
+              }
+            }
+          }
+        } catch {
+          // No embedded pictures, or an unrecognised drawing format — that's
+          // fine, we just proceed without photos for this file.
+        }
+      }
     }
 
     let workbook: XLSX.WorkBook;
@@ -543,14 +590,17 @@ export default {
       const row = rows[i];
       const rowLabel = `строка ${i + 2}`; // +2: header row + 1-indexed
       try {
-        const name = pick(row, 'Название', 'Name', 'Товар');
+        const sku = pick(row, 'Артикул', 'SKU', 'Sku') || null;
+        // "Наименование товара" covers supplier packing-list layouts. If the
+        // name cell is empty (common in those files — only the article is
+        // filled in) fall back to the article so the row isn't skipped.
+        const name = pick(row, 'Название', 'Name', 'Товар', 'Наименование товара', 'Наименование') || sku;
         if (!name) continue; // skip blank/example rows silently
 
-        const sku = pick(row, 'Артикул', 'SKU', 'Sku') || null;
         const description = pick(row, 'Описание', 'Description') || null;
         const priceRaw = pick(row, 'Опт. цена', 'Опт цена', 'Цена', 'Price');
-        const minQtyRaw = pick(row, 'Мин. партия, шт', 'Мин. партия', 'Мин партия');
-        const stockRaw = pick(row, 'Остаток, шт', 'Остаток', 'Наличие', 'Stock');
+        const minQtyRaw = pick(row, 'Мин. партия, шт', 'Мин. партия', 'Мин партия', 'Кол-во в коробке (QTY)', 'Кол-во в коробке');
+        const stockRaw = pick(row, 'Остаток, шт', 'Остаток', 'Наличие', 'Stock', 'Общее кол-во, шт', 'Общее кол-во');
         const categoryName = pick(row, 'Категория', 'Category');
         const photoName = pick(row, 'Фото (имя файла)', 'Фото', 'Photo', 'Image');
 
@@ -566,20 +616,37 @@ export default {
           wholesalePrice,
           minOrderQty,
           stock,
-          published: stock > 0,
+          // Always created as a draft, regardless of stock — files can come
+          // from very different sources (a clean price list vs. a supplier
+          // packing list with no name/price), so publishing is a manual,
+          // reviewed decision here rather than automatic like MoySklad sync.
+          published: false,
           category: categoryId,
+          isNew: true,
         };
 
+        // Photo, in priority order: filename match (zip upload) first, then
+        // a picture pasted directly into this row's cells (plain .xlsx).
+        let imageBuffer: Buffer | undefined;
+        let imageFilename = photoName || '';
         if (photoName) {
-          const imageBuffer = imagesByName.get(photoName.toLowerCase());
-          if (imageBuffer) {
-            const imageId = await uploadImageBuffer(imageBuffer, photoName);
-            if (imageId) {
-              data.images = [imageId];
-              withPhoto += 1;
-            }
-          } else if (isZip) {
+          imageBuffer = imagesByName.get(photoName.toLowerCase());
+          if (!imageBuffer && isZip) {
             errors.push(`${rowLabel}: фото "${photoName}" не найдено в архиве (товар всё равно создан)`);
+          }
+        }
+        if (!imageBuffer) {
+          const embedded = embeddedImagesByRow.get(i + 1);
+          if (embedded) {
+            imageBuffer = embedded.buffer;
+            imageFilename = `${sku || name}${embedded.ext}`;
+          }
+        }
+        if (imageBuffer) {
+          const imageId = await uploadImageBuffer(imageBuffer, imageFilename);
+          if (imageId) {
+            data.images = [imageId];
+            withPhoto += 1;
           }
         }
 
