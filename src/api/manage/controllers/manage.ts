@@ -352,6 +352,7 @@ export default {
         published: true, // reaching this point already means stock > 0
         moyskladId: row.id,
         category: categoryId,
+        isNew: true, // first time we've seen this product — mark it as new
       };
 
       if (withImages && row.images?.meta?.size > 0) {
