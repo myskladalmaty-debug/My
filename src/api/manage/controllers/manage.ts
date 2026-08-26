@@ -56,6 +56,48 @@ function buildAutoDescription(minOrderQty: number): string {
   return lines.join('\n');
 }
 
+// --- Telegram bot: send a product photo+caption to the bot, get a draft ---
+
+const TELEGRAM_API = 'https://api.telegram.org';
+
+async function tgFetch(method: string, params?: Record<string, any>) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error('TELEGRAM_BOT_TOKEN не задан');
+  const res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: params ? JSON.stringify(params) : undefined,
+  });
+  const json: any = await res.json();
+  if (!json.ok) throw new Error(`Telegram ${method} -> ${json.description || res.status}`);
+  return json.result;
+}
+
+async function tgSendMessage(chatId: number, text: string) {
+  try {
+    await tgFetch('sendMessage', { chat_id: chatId, text });
+  } catch {
+    // best-effort — a failed confirmation reply shouldn't fail the whole request
+  }
+}
+
+// Same rule as the paste-to-autofill field in the admin cabinet: first
+// non-empty line of the caption becomes the name, with leading emoji/symbols
+// stripped (suppliers usually lead with the product name).
+function extractNameFromCaption(text: string): string {
+  const firstLine = (text || '').split('\n').map((l) => l.trim()).find((l) => l.length > 0) || '';
+  return firstLine.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+}
+
+async function downloadTelegramPhoto(fileId: string): Promise<Buffer> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const file: any = await tgFetch('getFile', { file_id: fileId });
+  const res = await fetch(`${TELEGRAM_API}/file/bot${token}/${file.file_path}`);
+  if (!res.ok) throw new Error(`Не удалось скачать фото из Telegram: HTTP ${res.status}`);
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 // --- Pricing algorithm settings (markup % + rounding step) ---
 // Stored in Strapi's built-in key/value store so they persist and can be
 // changed from the cabinet without touching code or restarting the server.
@@ -141,6 +183,30 @@ async function importProductImage(productId: string, token: string): Promise<num
     }
   } catch {
     return null;
+  }
+}
+
+// Uploads a raw image buffer (already in memory — from a zip entry, an
+// embedded xlsx picture, or a Telegram download) into Strapi's media
+// library, returning the new file's id (or null on failure).
+async function uploadImageBuffer(buffer: Buffer, filename: string): Promise<number | null> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'img-upload-'));
+  const filepath = path.join(tmpDir, filename);
+  fs.writeFileSync(filepath, buffer);
+  try {
+    const ext = path.extname(filename).toLowerCase();
+    const mime =
+      ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+    const uploadService = strapi.plugin('upload').service('upload');
+    const [uploaded]: any = await uploadService.upload({
+      data: {},
+      files: { filepath, originalFilename: filename, mimetype: mime, size: buffer.length },
+    });
+    return uploaded?.id ?? null;
+  } catch {
+    return null;
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
 
@@ -561,27 +627,6 @@ export default {
       return '';
     }
 
-    async function uploadImageBuffer(buffer: Buffer, filename: string): Promise<number | null> {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'file-img-'));
-      const filepath = path.join(tmpDir, filename);
-      fs.writeFileSync(filepath, buffer);
-      try {
-        const ext = path.extname(filename).toLowerCase();
-        const mime =
-          ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
-        const uploadService = strapi.plugin('upload').service('upload');
-        const [uploaded]: any = await uploadService.upload({
-          data: {},
-          files: { filepath, originalFilename: filename, mimetype: mime, size: buffer.length },
-        });
-        return uploaded?.id ?? null;
-      } catch {
-        return null;
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    }
-
     const categoryCache = new Map<string, string>();
     let created = 0;
     let withPhoto = 0;
@@ -659,5 +704,71 @@ export default {
     }
 
     ctx.body = { totalRows: rows.length, created, withPhoto, errors };
+  },
+
+  // Telegram webhook: send the bot a photo with a caption (or just text) in
+  // a private chat, and it creates a draft product from it — first line of
+  // the caption becomes the name, the rest is the description, the photo
+  // (if any) is attached. Always a draft (isNew) so the admin still reviews
+  // price/stock before it goes live, same policy as the file importer.
+  async telegramWebhook(ctx: any) {
+    // Confirms the request really came from Telegram (setWebhook is
+    // configured with this same secret_token, echoed back on every call).
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    const headerSecret = ctx.request.header['x-telegram-bot-api-secret-token'];
+    if (secret && headerSecret !== secret) {
+      ctx.status = 401;
+      ctx.body = { ok: false };
+      return;
+    }
+
+    const message = ctx.request.body?.message;
+    ctx.body = { ok: true }; // Telegram just needs any 200 — no reply content expected here
+    if (!message) return;
+
+    const chatId: number | undefined = message.chat?.id;
+    if (!chatId) return;
+
+    const allowedChatId = process.env.TELEGRAM_ALLOWED_CHAT_ID;
+    if (allowedChatId && String(chatId) !== String(allowedChatId)) {
+      await tgSendMessage(chatId, 'Этот бот настроен для другого аккаунта.');
+      return;
+    }
+
+    if (message.text === '/start') {
+      await tgSendMessage(
+        chatId,
+        `Привет! Пришлите фото товара с подписью (первая строка — название) — я добавлю его в кабинет черновиком.\n\nВаш chat_id: ${chatId}`
+      );
+      return;
+    }
+
+    const caption: string = message.caption || message.text || '';
+    const name = extractNameFromCaption(caption) || 'Без названия (из Telegram)';
+
+    const data: any = {
+      name,
+      description: caption || null,
+      published: false,
+      isNew: true,
+    };
+
+    try {
+      const photos = message.photo; // array of sizes, largest is last
+      if (photos?.length) {
+        const largest = photos[photos.length - 1];
+        const buffer = await downloadTelegramPhoto(largest.file_id);
+        const imageId = await uploadImageBuffer(buffer, `tg_${largest.file_unique_id}.jpg`);
+        if (imageId) data.images = [imageId];
+      }
+
+      await strapi.documents('api::product.product').create({ data } as any);
+      await tgSendMessage(
+        chatId,
+        `✅ Добавлено как черновик: «${name}». Зайдите в кабинет — впишите цену/остаток и опубликуйте.`
+      );
+    } catch (err: any) {
+      await tgSendMessage(chatId, `Не удалось добавить товар: ${err.message || err}`);
+    }
   },
 };
