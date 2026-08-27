@@ -311,6 +311,13 @@ export default {
     ctx.body = { data: created };
   },
 
+  async deleteCategory(ctx: any) {
+    if (!requireAuth(ctx)) return;
+    const { id } = ctx.params;
+    await strapi.documents('api::category.category').delete({ documentId: id } as any);
+    ctx.body = { data: true };
+  },
+
   async upload(ctx: any) {
     if (!requireAuth(ctx)) return;
     const uploadController = strapi.plugin('upload').controller('content-api');
