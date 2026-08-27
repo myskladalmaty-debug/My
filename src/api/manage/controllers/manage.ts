@@ -723,6 +723,7 @@ export default {
     }
 
     const message = ctx.request.body?.message;
+    console.log('[DEBUG telegram] body =', JSON.stringify(ctx.request.body)?.slice(0, 800));
     ctx.body = { ok: true }; // Telegram just needs any 200 — no reply content expected here
     if (!message) return;
 
