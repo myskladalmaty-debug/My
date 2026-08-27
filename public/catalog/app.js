@@ -88,19 +88,22 @@ function imageUrl(product) {
 }
 
 function productCardHtml(p) {
+  const img = imageUrl(p);
   return `
     <div class="card">
       ${p.isNew ? `<span class="badge-new">${t('badgeNew')}</span>` : ''}
-      ${imageUrl(p) ? `<img src="${imageUrl(p)}" alt="${p.name}" loading="lazy" />` : ''}
+      <div class="card-image">
+        ${img ? `<img src="${img}" alt="${p.name}" loading="lazy" />` : `<span class="no-photo" aria-hidden="true">📦</span>`}
+      </div>
       <div class="card-body">
         <h3>${p.name}</h3>
         ${p.description ? `<div class="desc">${p.description}</div>` : ''}
-        <div class="price-row">
+        <div class="card-footer">
           <span class="minqty">${t('fromQty', p.minOrderQty || 1)}</span>
+          <span class="stock ${p.stock > 0 ? 'in' : 'out'}">
+            <i class="dot"></i>${p.stock > 0 ? t('inStock') : t('outStock')}
+          </span>
         </div>
-        <span class="stock ${p.stock > 0 ? 'in' : 'out'}">
-          ${p.stock > 0 ? t('inStock') : t('outStock')}
-        </span>
       </div>
     </div>
   `;
@@ -233,9 +236,9 @@ function renderStaticText() {
   document.getElementById('howToBuyTitle').textContent = t('howToBuyTitle');
   document.getElementById('howToBuySteps').innerHTML = t('howToBuySteps').map(s => `<li>${s}</li>`).join('');
   document.getElementById('contacts').innerHTML = `
-    <a class="placeholder" href="#">${t('contactSoon', 'WhatsApp')}</a>
-    <a class="placeholder" href="#">${t('contactSoon', 'Telegram')}</a>
-    <a class="placeholder" href="#">${t('contactSoon', lang === 'ru' ? 'Телефон' : 'Телефон')}</a>
+    <a class="placeholder whatsapp" href="#">${t('contactSoon', 'WhatsApp')}</a>
+    <a class="placeholder telegram" href="#">${t('contactSoon', 'Telegram')}</a>
+    <a class="placeholder phone" href="#">${t('contactSoon', lang === 'ru' ? 'Телефон' : 'Телефон')}</a>
   `;
   setupContactPlaceholders();
 
