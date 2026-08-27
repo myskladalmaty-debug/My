@@ -81,12 +81,46 @@ async function tgSendMessage(chatId: number, text: string) {
   }
 }
 
-// Same rule as the paste-to-autofill field in the admin cabinet: first
-// non-empty line of the caption becomes the name, with leading emoji/symbols
-// stripped (suppliers usually lead with the product name).
-function extractNameFromCaption(text: string): string {
-  const firstLine = (text || '').split('\n').map((l) => l.trim()).find((l) => l.length > 0) || '';
-  return firstLine.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+// Suppliers' Telegram posts follow a loose but recurring pattern (see
+// buildAutoDescription above): first line is the name, a "Модель: X" line
+// names the article, a "В коробке: N pcs" line is the pack size, and there's
+// often a closing "Твой хороший выбор" line. Pull those into their own
+// fields — same as a normal (MoySklad/file) import — instead of dumping the
+// whole caption as one opaque blob, and normalise the wording of the lines
+// we recognise so the description reads the same as everywhere else.
+function parseTelegramCaption(caption: string): {
+  name: string;
+  sku: string | null;
+  minOrderQty: number | null;
+  description: string | null;
+} {
+  const lines = (caption || '').split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+  const name = (lines[0] || '').replace(/^[^\p{L}\p{N}]+/u, '').trim() || 'Без названия (из Telegram)';
+
+  let sku: string | null = null;
+  let minOrderQty: number | null = null;
+  const descLines: string[] = [];
+
+  for (const line of lines.slice(1)) {
+    const modelMatch = line.match(/модель\s*:\s*(.+)/i);
+    if (modelMatch) {
+      sku = modelMatch[1].trim();
+      continue; // becomes the SKU field, not repeated in the description
+    }
+    const boxMatch = line.match(/в\s*коробке\s*:\s*(\d+)/i);
+    if (boxMatch) {
+      minOrderQty = parseInt(boxMatch[1], 10);
+      descLines.push(`📦 В коробке: ${minOrderQty} pcs`);
+      continue;
+    }
+    if (/твой хороший выбор/i.test(line)) {
+      descLines.push('✅ Твой хороший выбор');
+      continue;
+    }
+    descLines.push(line);
+  }
+
+  return { name, sku, minOrderQty, description: descLines.join('\n') || null };
 }
 
 async function downloadTelegramPhoto(fileId: string): Promise<Buffer> {
@@ -730,7 +764,6 @@ export default {
     }
 
     const message = ctx.request.body?.message;
-    console.log('[DEBUG telegram] body =', JSON.stringify(ctx.request.body)?.slice(0, 800));
     ctx.body = { ok: true }; // Telegram just needs any 200 — no reply content expected here
     if (!message) return;
 
@@ -752,14 +785,16 @@ export default {
     }
 
     const caption: string = message.caption || message.text || '';
-    const name = extractNameFromCaption(caption) || 'Без названия (из Telegram)';
+    const parsed = parseTelegramCaption(caption);
 
     const data: any = {
-      name,
-      description: caption || null,
+      name: parsed.name,
+      sku: parsed.sku,
+      description: parsed.description,
       published: false,
       isNew: true,
     };
+    if (parsed.minOrderQty) data.minOrderQty = parsed.minOrderQty;
 
     try {
       const photos = message.photo; // array of sizes, largest is last
@@ -773,7 +808,7 @@ export default {
       await strapi.documents('api::product.product').create({ data } as any);
       await tgSendMessage(
         chatId,
-        `✅ Добавлено как черновик: «${name}». Зайдите в кабинет — впишите цену/остаток и опубликуйте.`
+        `✅ Добавлено как черновик: «${parsed.name}». Зайдите в кабинет — впишите цену/остаток и опубликуйте.`
       );
     } catch (err: any) {
       await tgSendMessage(chatId, `Не удалось добавить товар: ${err.message || err}`);
