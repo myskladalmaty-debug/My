@@ -7,6 +7,7 @@ export default {
     { method: 'DELETE', path: '/manage/products/:id', handler: 'manage.deleteProduct', config: { auth: false } },
     { method: 'GET', path: '/manage/categories', handler: 'manage.listCategories', config: { auth: false } },
     { method: 'POST', path: '/manage/categories', handler: 'manage.createCategory', config: { auth: false } },
+    { method: 'DELETE', path: '/manage/categories/:id', handler: 'manage.deleteCategory', config: { auth: false } },
     { method: 'POST', path: '/manage/upload', handler: 'manage.upload', config: { auth: false } },
     { method: 'POST', path: '/manage/import-moysklad', handler: 'manage.importMoysklad', config: { auth: false } },
     { method: 'GET', path: '/manage/pricing-settings', handler: 'manage.getPricingSettings', config: { auth: false } },
