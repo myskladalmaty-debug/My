@@ -96,7 +96,7 @@ function productCardHtml(p) {
         ${img ? `<img src="${img}" alt="${p.name}" loading="lazy" />` : `<span class="no-photo" aria-hidden="true">📦</span>`}
       </div>
       <div class="card-body">
-        <h3>${p.name}</h3>
+        <h3>${p.sku || p.name}</h3>
         ${p.description ? `<div class="desc">${p.description}</div>` : ''}
         <div class="card-footer">
           <span class="minqty">${t('fromQty', p.minOrderQty || 1)}</span>
