@@ -95,11 +95,19 @@ function parseTelegramCaption(caption: string): {
   description: string | null;
 } {
   const lines = (caption || '').split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
-  const name = (lines[0] || '').replace(/^[^\p{L}\p{N}]+/u, '').trim() || 'Без названия (из Telegram)';
 
   let sku: string | null = null;
   let minOrderQty: number | null = null;
   const descLines: string[] = [];
+
+  // The "Модель: X" line becomes the SKU wherever it appears — including the
+  // very first line, when a post leads with the model instead of a separate
+  // name (then the name falls back to the model code itself).
+  const firstLineModelMatch = (lines[0] || '').match(/модель\s*:\s*(.+)/i);
+  const name = firstLineModelMatch
+    ? firstLineModelMatch[1].trim()
+    : (lines[0] || '').replace(/^[^\p{L}\p{N}]+/u, '').trim() || 'Без названия (из Telegram)';
+  if (firstLineModelMatch) sku = firstLineModelMatch[1].trim();
 
   for (const line of lines.slice(1)) {
     const modelMatch = line.match(/модель\s*:\s*(.+)/i);
@@ -107,20 +115,23 @@ function parseTelegramCaption(caption: string): {
       sku = modelMatch[1].trim();
       continue; // becomes the SKU field, not repeated in the description
     }
-    const boxMatch = line.match(/в\s*коробке\s*:\s*(\d+)/i);
+    const boxMatch = line.match(/в\s*коробке\s*:?\s*(\d+)/i);
     if (boxMatch) {
       minOrderQty = parseInt(boxMatch[1], 10);
       descLines.push(`📦 В коробке: ${minOrderQty} pcs`);
       continue;
     }
     if (/твой хороший выбор/i.test(line)) {
-      descLines.push('✅ Твой хороший выбор');
-      continue;
+      continue; // added back below, with consistent wording, once per product
     }
     descLines.push(line);
   }
 
-  return { name, sku, minOrderQty, description: descLines.join('\n') || null };
+  // Every product description ends with this line, regardless of whether
+  // the original post included it — keeps the catalog looking uniform.
+  descLines.push('✅ Твой хороший выбор');
+
+  return { name, sku, minOrderQty, description: descLines.join('\n') };
 }
 
 async function downloadTelegramPhoto(fileId: string): Promise<Buffer> {
