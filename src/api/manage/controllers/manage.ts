@@ -460,6 +460,7 @@ export default {
         moyskladId: row.id,
         category: categoryId,
         isNew: true, // first time we've seen this product — mark it as new
+        source: 'moysklad',
       };
 
       if (withImages && row.images?.meta?.size > 0) {
@@ -710,6 +711,7 @@ export default {
           published: false,
           category: categoryId,
           isNew: true,
+          source: 'file',
         };
 
         // Photo, in priority order: filename match (zip upload) first, then
@@ -793,6 +795,7 @@ export default {
       description: parsed.description,
       published: false,
       isNew: true,
+      source: 'telegram',
     };
     if (parsed.minOrderQty) data.minOrderQty = parsed.minOrderQty;
 
