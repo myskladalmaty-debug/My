@@ -100,8 +100,8 @@ function productCardHtml(p) {
         ${p.description ? `<div class="desc">${p.description}</div>` : ''}
         <div class="card-footer">
           <span class="minqty">${t('fromQty', p.minOrderQty || 1)}</span>
-          <span class="stock ${p.stock > 0 ? 'in' : 'out'}">
-            <i class="dot"></i>${p.stock > 0 ? t('inStock') : t('outStock')}
+          <span class="stock in">
+            <i class="dot"></i>${t('inStock')}
           </span>
         </div>
       </div>
