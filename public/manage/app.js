@@ -62,6 +62,7 @@ const translations = {
     chipNoPrice: 'Без цены',
     chipNoDescription: 'Без описания',
     chipNew: 'Новинки',
+    chipTelegram: '📱 Из Telegram',
     bulkSelectedCount: (n) => `Выбрано: ${n}`,
     bulkPublish: 'Опубликовать',
     bulkUnpublish: 'Снять с публикации',
@@ -148,6 +149,7 @@ const translations = {
     chipNoPrice: 'Бағасыз',
     chipNoDescription: 'Сипаттамасыз',
     chipNew: 'Жаңалар',
+    chipTelegram: '📱 Telegram-нан',
     bulkSelectedCount: (n) => `Таңдалды: ${n}`,
     bulkPublish: 'Жариялау',
     bulkUnpublish: 'Жариялаудан алу',
@@ -351,6 +353,7 @@ const FILTERS = {
   noPrice: p => !((p.wholesalePrice ?? 0) > 0),
   noDescription: p => !(p.description && p.description.trim()),
   isNew: p => !!p.isNew,
+  telegram: p => p.source === 'telegram',
 };
 
 function filteredProducts() {
@@ -406,6 +409,7 @@ function renderChips() {
   const noPriceCount = products.filter(FILTERS.noPrice).length;
   const noDescriptionCount = products.filter(FILTERS.noDescription).length;
   const isNewCount = products.filter(FILTERS.isNew).length;
+  const telegramCount = products.filter(FILTERS.telegram).length;
 
   const chips = [
     ['draft', t('chipDraft'), draftCount],
@@ -414,6 +418,7 @@ function renderChips() {
     ['noPrice', t('chipNoPrice'), noPriceCount],
     ['noDescription', t('chipNoDescription'), noDescriptionCount],
     ['isNew', t('chipNew'), isNewCount],
+    ['telegram', t('chipTelegram'), telegramCount],
   ];
 
   document.getElementById('chips').innerHTML = chips.map(([key, label, count]) => `
