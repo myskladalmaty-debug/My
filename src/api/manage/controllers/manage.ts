@@ -822,11 +822,22 @@ export default {
     if (parsed.sku && process.env.MOYSKLAD_TOKEN) {
       try {
         const msToken = process.env.MOYSKLAD_TOKEN;
+        // Phone keyboards happily swap in Cyrillic look-alikes (Т/Н/О/Р/С/...
+        // for T/H/O/P/C/...) when someone types a model number — normalise
+        // those to Latin before searching, so "ТН-816" still finds "TH-816".
+        const cyrillicToLatin: Record<string, string> = {
+          А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O',
+          Р: 'P', С: 'C', Т: 'T', Х: 'X', У: 'Y',
+        };
+        const normalizedSku = parsed.sku
+          .split('')
+          .map((ch) => cyrillicToLatin[ch.toUpperCase()] || ch)
+          .join('');
         // MoySklad products use "article" or "code" for their model number
         // depending on how they were entered — sometimes neither, and the
         // model only shows up inside the product's name. Try all three,
         // in that order.
-        const skuEnc = encodeURIComponent(parsed.sku);
+        const skuEnc = encodeURIComponent(normalizedSku);
         let found: any = await msFetch(`/entity/product?filter=article=${skuEnc}`, msToken);
         if (!found.rows?.length) {
           found = await msFetch(`/entity/product?filter=code=${skuEnc}`, msToken);
@@ -834,7 +845,7 @@ export default {
         let row = found.rows?.[0];
         if (!row) {
           const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-          const target = normalize(parsed.sku);
+          const target = normalize(normalizedSku);
           const searched: any = await msFetch(`/entity/product?search=${skuEnc}`, msToken);
           row = (searched.rows || []).find((r: any) => normalize(r.name || '').includes(target));
         }
