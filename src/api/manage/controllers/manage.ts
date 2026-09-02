@@ -822,15 +822,22 @@ export default {
     if (parsed.sku && process.env.MOYSKLAD_TOKEN) {
       try {
         const msToken = process.env.MOYSKLAD_TOKEN;
-        // MoySklad products use either "article" or "code" for their model
-        // number depending on how they were entered — same fallback order
-        // used when importing from MoySklad in the first place.
+        // MoySklad products use "article" or "code" for their model number
+        // depending on how they were entered — sometimes neither, and the
+        // model only shows up inside the product's name. Try all three,
+        // in that order.
         const skuEnc = encodeURIComponent(parsed.sku);
         let found: any = await msFetch(`/entity/product?filter=article=${skuEnc}`, msToken);
         if (!found.rows?.length) {
           found = await msFetch(`/entity/product?filter=code=${skuEnc}`, msToken);
         }
-        const row = found.rows?.[0];
+        let row = found.rows?.[0];
+        if (!row) {
+          const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+          const target = normalize(parsed.sku);
+          const searched: any = await msFetch(`/entity/product?search=${skuEnc}`, msToken);
+          row = (searched.rows || []).find((r: any) => normalize(r.name || '').includes(target));
+        }
         if (row) {
           const costPrice = (row.buyPrice?.value ?? 0) / 100;
           if (costPrice > 0) {
