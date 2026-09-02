@@ -124,6 +124,12 @@ function parseTelegramCaption(caption: string): {
     if (/твой хороший выбор/i.test(line)) {
       continue; // added back below, with consistent wording, once per product
     }
+    // Contact/ordering info (a "Номера для заказа" header, a phone number,
+    // WhatsApp/Telegram links) belongs on the site's own contacts block, not
+    // repeated on every single product — drop it here.
+    if (/номер.*заказ|заказ.*номер/i.test(line)) continue;
+    if (/(\+?\d[\d\-\s()]{6,}\d)/.test(line)) continue;
+    if (/wa\.me|whatsapp|t\.me|instagram/i.test(line)) continue;
     descLines.push(line);
   }
 
