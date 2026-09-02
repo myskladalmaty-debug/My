@@ -816,6 +816,28 @@ export default {
     };
     if (parsed.minOrderQty) data.minOrderQty = parsed.minOrderQty;
 
+    // If this model is already known to MoySklad, pull its cost price and
+    // run it through the same markup formula used everywhere else — so the
+    // wholesale price is filled in automatically instead of sitting at 0.
+    if (parsed.sku && process.env.MOYSKLAD_TOKEN) {
+      try {
+        const msToken = process.env.MOYSKLAD_TOKEN;
+        const found: any = await msFetch(`/entity/product?filter=article=${encodeURIComponent(parsed.sku)}`, msToken);
+        const row = found.rows?.[0];
+        if (row) {
+          const costPrice = (row.buyPrice?.value ?? 0) / 100;
+          if (costPrice > 0) {
+            const settings = await getPricingSettings();
+            data.costPrice = costPrice;
+            data.wholesalePrice = computePrice(costPrice, settings);
+          }
+        }
+      } catch {
+        // No match, or MoySklad unreachable — the product is still created,
+        // just without a price (same as any other Telegram submission).
+      }
+    }
+
     try {
       const photos = message.photo; // array of sizes, largest is last
       if (photos?.length) {
@@ -826,9 +848,12 @@ export default {
       }
 
       await strapi.documents('api::product.product').create({ data } as any);
+      const priceLine = data.wholesalePrice
+        ? `\nЦена посчитана по МойСклад: ${data.wholesalePrice} ₸.`
+        : '\nЦена не найдена в МойСклад — впишите вручную.';
       await tgSendMessage(
         chatId,
-        `✅ Добавлено как черновик: «${parsed.name}». Зайдите в кабинет — впишите цену/остаток и опубликуйте.`
+        `✅ Добавлено как черновик: «${parsed.name}».${priceLine} Впишите остаток и опубликуйте в кабинете.`
       );
     } catch (err: any) {
       await tgSendMessage(chatId, `Не удалось добавить товар: ${err.message || err}`);
