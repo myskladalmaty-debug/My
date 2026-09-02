@@ -30,8 +30,6 @@ const translations = {
       'Свяжитесь с нами по любому из контактов ниже и укажите название и количество товара.',
       'Мы подтвердим наличие, стоимость с учётом объёма и оформим отправку.',
     ],
-    contactSoon: (name) => `${name} (скоро)`,
-    contactAlert: 'Укажите реальный контакт в файле public/catalog/index.html (раздел "Как купить").',
   },
   kz: {
     pageTitle: 'Тауарлар каталогы',
@@ -57,8 +55,6 @@ const translations = {
       'Төмендегі кез келген байланыс арқылы бізге хабарласып, тауардың атауы мен санын көрсетіңіз.',
       'Біз қолжетімділікті, көлемге сай құнын растап, жөнелтуді рәсімдейміз.',
     ],
-    contactSoon: (name) => `${name} (жақында)`,
-    contactAlert: 'public/catalog/index.html файлында ("Қалай сатып алуға болады" бөлімінде) нақты байланысты көрсетіңіз.',
   },
 };
 
@@ -220,15 +216,6 @@ function setupLoadMore() {
   });
 }
 
-function setupContactPlaceholders() {
-  document.querySelectorAll('.contacts a.placeholder').forEach(a => {
-    a.addEventListener('click', (e) => {
-      e.preventDefault();
-      alert(t('contactAlert'));
-    });
-  });
-}
-
 function renderStaticText() {
   document.getElementById('pageTitle').textContent = t('pageTitle');
   document.getElementById('pageSubtitle').textContent = t('pageSubtitle');
@@ -236,11 +223,10 @@ function renderStaticText() {
   document.getElementById('howToBuyTitle').textContent = t('howToBuyTitle');
   document.getElementById('howToBuySteps').innerHTML = t('howToBuySteps').map(s => `<li>${s}</li>`).join('');
   document.getElementById('contacts').innerHTML = `
-    <a class="placeholder whatsapp" href="#">${t('contactSoon', 'WhatsApp')}</a>
-    <a class="placeholder telegram" href="#">${t('contactSoon', 'Telegram')}</a>
-    <a class="placeholder phone" href="#">${t('contactSoon', lang === 'ru' ? 'Телефон' : 'Телефон')}</a>
+    <a class="whatsapp" href="https://whatsapp.com/channel/0029VaJ8LFg4tRrsQ7ts2Z3H" target="_blank" rel="noopener">WhatsApp</a>
+    <a class="telegram" href="https://t.me/rmz_tehniki_almaty" target="_blank" rel="noopener">Telegram</a>
+    <a class="phone" href="tel:+77772544464">+7 777 254 44 64</a>
   `;
-  setupContactPlaceholders();
 
   document.querySelectorAll('#langSwitch button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
