@@ -633,12 +633,20 @@ export default {
   async findMoyskladPrices(ctx: any) {
     if (!requireAuth(ctx)) return;
 
+    // With `ids`, only those selected products are processed (whatever their
+    // current price — the admin picked them on purpose). Without it, every
+    // draft that's missing a price and wasn't priced by hand is processed.
+    const ids: string[] | undefined = ctx.request.body?.ids;
+    const filters: any = ids?.length
+      ? { documentId: { $in: ids }, sku: { $notNull: true } }
+      : {
+          sku: { $notNull: true },
+          $or: [{ wholesalePrice: { $eq: 0 } }, { wholesalePrice: { $null: true } }],
+          priceManuallySet: { $ne: true },
+        };
+
     const products: any = await strapi.documents('api::product.product').findMany({
-      filters: {
-        sku: { $notNull: true },
-        $or: [{ wholesalePrice: { $eq: 0 } }, { wholesalePrice: { $null: true } }],
-        priceManuallySet: { $ne: true },
-      },
+      filters,
       pagination: { pageSize: 5000 },
     } as any);
 
