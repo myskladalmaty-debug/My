@@ -236,7 +236,6 @@ function applyStaticText() {
   document.getElementById('importFileBtn').textContent = t('importFileBtn');
   document.getElementById('importFileHint').textContent = t('importFileHint');
   document.getElementById('syncMoyskladBtn').textContent = t('syncMoyskladBtn');
-  document.getElementById('findPricesBtn').textContent = t('findPricesBtn');
   document.getElementById('l_paste').textContent = t('l_paste');
   document.getElementById('pasteHint').textContent = t('pasteHint');
   document.getElementById('l_name').textContent = t('l_name');
@@ -449,6 +448,7 @@ function renderBulkBar() {
   document.getElementById('bulkCount').textContent = t('bulkSelectedCount', selected.size);
   document.getElementById('bulkPublishBtn').textContent = t('bulkPublish');
   document.getElementById('bulkUnpublishBtn').textContent = t('bulkUnpublish');
+  document.getElementById('bulkFindPricesBtn').textContent = t('findPricesBtn');
   document.getElementById('bulkDeleteBtn').textContent = t('bulkDelete');
   document.getElementById('bulkDeselectBtn').textContent = t('bulkDeselect');
 }
@@ -693,8 +693,10 @@ async function syncMoysklad() {
   }
 }
 
-async function findMoyskladPrices() {
-  const btn = document.getElementById('findPricesBtn');
+async function bulkFindPrices() {
+  const ids = [...selected];
+  if (!ids.length) return;
+  const btn = document.getElementById('bulkFindPricesBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = t('findingPrices');
@@ -702,12 +704,14 @@ async function findMoyskladPrices() {
   try {
     const res = await fetch(API_BASE + '/api/manage/find-moysklad-prices', {
       method: 'POST',
-      headers: authHeaders(),
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result?.error?.message || 'failed');
 
     showToast(t('findPricesDone', result.updated, result.total));
+    selected.clear();
     loadProducts();
   } catch (e) {
     console.error(e);
@@ -1011,7 +1015,6 @@ function init() {
   setupPricing();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
-  document.getElementById('findPricesBtn').addEventListener('click', () => findMoyskladPrices());
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
@@ -1023,6 +1026,7 @@ function init() {
   });
   document.getElementById('bulkPublishBtn').addEventListener('click', () => bulkSetPublished(true));
   document.getElementById('bulkUnpublishBtn').addEventListener('click', () => bulkSetPublished(false));
+  document.getElementById('bulkFindPricesBtn').addEventListener('click', () => bulkFindPrices());
   document.getElementById('bulkDeleteBtn').addEventListener('click', () => bulkDeleteSelected());
   document.getElementById('bulkDeselectBtn').addEventListener('click', () => {
     selected.clear();
