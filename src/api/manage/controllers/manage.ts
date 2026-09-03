@@ -92,12 +92,14 @@ function parseTelegramCaption(caption: string): {
   name: string;
   sku: string | null;
   minOrderQty: number | null;
+  price: number | null;
   description: string | null;
 } {
   const lines = (caption || '').split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
 
   let sku: string | null = null;
   let minOrderQty: number | null = null;
+  let price: number | null = null;
   const descLines: string[] = [];
 
   // The "Модель: X" line becomes the SKU wherever it appears — including the
@@ -121,6 +123,14 @@ function parseTelegramCaption(caption: string): {
       descLines.push(`📦 В коробке: ${minOrderQty} pcs`);
       continue;
     }
+    // A price given directly in the post (e.g. "Цена: 230 тг") is used as-is
+    // — it's more authoritative than a MoySklad lookup, so it's also marked
+    // priceManuallySet to protect it from later bulk pricing-algorithm runs.
+    const priceMatch = line.match(/цена\s*:?\s*(\d+(?:[.,]\d+)?)/i);
+    if (priceMatch) {
+      price = parseFloat(priceMatch[1].replace(',', '.'));
+      continue;
+    }
     if (/твой хороший выбор/i.test(line)) {
       continue; // added back below, with consistent wording, once per product
     }
@@ -137,7 +147,7 @@ function parseTelegramCaption(caption: string): {
   // the original post included it — keeps the catalog looking uniform.
   descLines.push('✅ Твой хороший выбор');
 
-  return { name, sku, minOrderQty, description: descLines.join('\n') };
+  return { name, sku, minOrderQty, price, description: descLines.join('\n') };
 }
 
 async function downloadTelegramPhoto(fileId: string): Promise<Buffer> {
@@ -815,11 +825,16 @@ export default {
       source: 'telegram',
     };
     if (parsed.minOrderQty) data.minOrderQty = parsed.minOrderQty;
+    if (parsed.price) {
+      data.wholesalePrice = parsed.price;
+      data.priceManuallySet = true; // given directly in the post — don't let MoySklad or bulk pricing runs overwrite it
+    }
 
     // If this model is already known to MoySklad, pull its cost price and
     // run it through the same markup formula used everywhere else — so the
     // wholesale price is filled in automatically instead of sitting at 0.
-    if (parsed.sku && process.env.MOYSKLAD_TOKEN) {
+    // Skipped when the post already gave an explicit price.
+    if (!parsed.price && parsed.sku && process.env.MOYSKLAD_TOKEN) {
       try {
         const msToken = process.env.MOYSKLAD_TOKEN;
         // Phone keyboards happily swap in Cyrillic look-alikes (Т/Н/О/Р/С/...
@@ -873,9 +888,11 @@ export default {
       }
 
       await strapi.documents('api::product.product').create({ data } as any);
-      const priceLine = data.wholesalePrice
-        ? `\nЦена посчитана по МойСклад: ${data.wholesalePrice} ₸.`
-        : '\nЦена не найдена в МойСклад — впишите вручную.';
+      const priceLine = parsed.price
+        ? `\nЦена взята из поста: ${data.wholesalePrice} ₸.`
+        : data.wholesalePrice
+          ? `\nЦена посчитана по МойСклад: ${data.wholesalePrice} ₸.`
+          : '\nЦена не найдена — впишите вручную.';
       await tgSendMessage(
         chatId,
         `✅ Добавлено как черновик: «${parsed.name}».${priceLine} Впишите остаток и опубликуйте в кабинете.`
