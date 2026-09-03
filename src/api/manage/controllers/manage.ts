@@ -183,6 +183,52 @@ function computePrice(costPrice: number, settings: PricingSettings): number {
   return Math.ceil(withMarkup / roundTo) * roundTo;
 }
 
+// Looks up a model number in MoySklad (matching "article", then "code",
+// then falling back to a substring match against the product's name) and
+// returns its cost price run through the standard markup formula — or null
+// if there's no match, or the match has no cost price recorded. Shared by
+// the Telegram bot (priced at creation time) and the cabinet's bulk
+// "find prices" action (for drafts that came in without one).
+async function lookupMoyskladPrice(sku: string): Promise<{ costPrice: number; wholesalePrice: number } | null> {
+  const msToken = process.env.MOYSKLAD_TOKEN;
+  if (!msToken) return null;
+  try {
+    // Phone keyboards happily swap in Cyrillic look-alikes (Т/Н/О/Р/С/... for
+    // T/H/O/P/C/...) when someone types a model number — normalise those to
+    // Latin before searching, so "ТН-816" still finds "TH-816".
+    const cyrillicToLatin: Record<string, string> = {
+      А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O',
+      Р: 'P', С: 'C', Т: 'T', Х: 'X', У: 'Y',
+    };
+    const normalizedSku = sku
+      .split('')
+      .map((ch) => cyrillicToLatin[ch.toUpperCase()] || ch)
+      .join('');
+    // MoySklad products use "article" or "code" for their model number
+    // depending on how they were entered — sometimes neither, and the model
+    // only shows up inside the product's name. Try all three, in that order.
+    const skuEnc = encodeURIComponent(normalizedSku);
+    let found: any = await msFetch(`/entity/product?filter=article=${skuEnc}`, msToken);
+    if (!found.rows?.length) {
+      found = await msFetch(`/entity/product?filter=code=${skuEnc}`, msToken);
+    }
+    let row = found.rows?.[0];
+    if (!row) {
+      const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+      const target = normalize(normalizedSku);
+      const searched: any = await msFetch(`/entity/product?search=${skuEnc}`, msToken);
+      row = (searched.rows || []).find((r: any) => normalize(r.name || '').includes(target));
+    }
+    if (!row) return null;
+    const costPrice = (row.buyPrice?.value ?? 0) / 100;
+    if (costPrice <= 0) return null;
+    const settings = await getPricingSettings();
+    return { costPrice, wholesalePrice: computePrice(costPrice, settings) };
+  } catch {
+    return null;
+  }
+}
+
 async function findOrCreateCategoryId(name: string, cache: Map<string, string>): Promise<string | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
@@ -579,6 +625,47 @@ export default {
     ctx.body = { updated, total: products.length, settings };
   },
 
+  // Goes through every product that has no price yet (and wasn't priced by
+  // hand) but does have a model/article, and tries to find that model in
+  // MoySklad to compute a price from its cost — same lookup the Telegram bot
+  // uses when a product is created, just run afterwards in bulk for drafts
+  // that came in without a match (or before this lookup existed).
+  async findMoyskladPrices(ctx: any) {
+    if (!requireAuth(ctx)) return;
+
+    const products: any = await strapi.documents('api::product.product').findMany({
+      filters: {
+        sku: { $notNull: true },
+        $or: [{ wholesalePrice: { $eq: 0 } }, { wholesalePrice: { $null: true } }],
+        priceManuallySet: { $ne: true },
+      },
+      pagination: { pageSize: 5000 },
+    } as any);
+
+    let updated = 0;
+    let notFound = 0;
+    const CONCURRENCY = 3;
+    let index = 0;
+    async function worker() {
+      while (index < products.length) {
+        const p = products[index++];
+        const priced = await lookupMoyskladPrice(p.sku);
+        if (priced) {
+          await strapi.documents('api::product.product').update({
+            documentId: p.documentId,
+            data: { costPrice: priced.costPrice, wholesalePrice: priced.wholesalePrice },
+          } as any);
+          updated += 1;
+        } else {
+          notFound += 1;
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+    ctx.body = { updated, notFound, total: products.length };
+  },
+
   // Bulk-add products from an uploaded file — either a plain Excel/CSV
   // spreadsheet (no photos), or a .zip containing the spreadsheet plus a
   // folder of photos, matched to rows by the "Фото (имя файла)" column
@@ -834,47 +921,11 @@ export default {
     // run it through the same markup formula used everywhere else — so the
     // wholesale price is filled in automatically instead of sitting at 0.
     // Skipped when the post already gave an explicit price.
-    if (!parsed.price && parsed.sku && process.env.MOYSKLAD_TOKEN) {
-      try {
-        const msToken = process.env.MOYSKLAD_TOKEN;
-        // Phone keyboards happily swap in Cyrillic look-alikes (Т/Н/О/Р/С/...
-        // for T/H/O/P/C/...) when someone types a model number — normalise
-        // those to Latin before searching, so "ТН-816" still finds "TH-816".
-        const cyrillicToLatin: Record<string, string> = {
-          А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O',
-          Р: 'P', С: 'C', Т: 'T', Х: 'X', У: 'Y',
-        };
-        const normalizedSku = parsed.sku
-          .split('')
-          .map((ch) => cyrillicToLatin[ch.toUpperCase()] || ch)
-          .join('');
-        // MoySklad products use "article" or "code" for their model number
-        // depending on how they were entered — sometimes neither, and the
-        // model only shows up inside the product's name. Try all three,
-        // in that order.
-        const skuEnc = encodeURIComponent(normalizedSku);
-        let found: any = await msFetch(`/entity/product?filter=article=${skuEnc}`, msToken);
-        if (!found.rows?.length) {
-          found = await msFetch(`/entity/product?filter=code=${skuEnc}`, msToken);
-        }
-        let row = found.rows?.[0];
-        if (!row) {
-          const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-          const target = normalize(normalizedSku);
-          const searched: any = await msFetch(`/entity/product?search=${skuEnc}`, msToken);
-          row = (searched.rows || []).find((r: any) => normalize(r.name || '').includes(target));
-        }
-        if (row) {
-          const costPrice = (row.buyPrice?.value ?? 0) / 100;
-          if (costPrice > 0) {
-            const settings = await getPricingSettings();
-            data.costPrice = costPrice;
-            data.wholesalePrice = computePrice(costPrice, settings);
-          }
-        }
-      } catch {
-        // No match, or MoySklad unreachable — the product is still created,
-        // just without a price (same as any other Telegram submission).
+    if (!parsed.price && parsed.sku) {
+      const priced = await lookupMoyskladPrice(parsed.sku);
+      if (priced) {
+        data.costPrice = priced.costPrice;
+        data.wholesalePrice = priced.wholesalePrice;
       }
     }
 
