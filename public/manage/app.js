@@ -85,6 +85,10 @@ const translations = {
     syncingMoysklad: (n) => `Синхронизация… (${n})`,
     syncMoyskladDone: (imported, updated, deleted) => `Готово: добавлено ${imported}, обновлено ${updated}, удалено ${deleted}`,
     syncMoyskladError: 'Не удалось синхронизировать с МойСклад',
+    findPricesBtn: '💰 Найти цены по МойСклад',
+    findingPrices: 'Ищу цены…',
+    findPricesDone: (updated, total) => `Готово: цена найдена для ${updated} из ${total}`,
+    findPricesError: 'Не удалось найти цены',
     importFileBtn: '📄 Загрузить из файла',
     importFileHint: 'Excel/CSV — только текст. ZIP-архив (таблица + папка с фото) — с фото.',
     importingFile: 'Загружаю…',
@@ -172,6 +176,10 @@ const translations = {
     syncingMoysklad: (n) => `Синхрондалуда… (${n})`,
     syncMoyskladDone: (imported, updated, deleted) => `Дайын: қосылды ${imported}, жаңартылды ${updated}, жойылды ${deleted}`,
     syncMoyskladError: 'МойСклад-пен синхрондау мүмкін болмады',
+    findPricesBtn: '💰 МойСклад-тан баға табу',
+    findingPrices: 'Бағалар ізделуде…',
+    findPricesDone: (updated, total) => `Дайын: ${total} тауардың ${updated} бағасы табылды`,
+    findPricesError: 'Бағаларды табу мүмкін болмады',
     importFileBtn: '📄 Файлдан жүктеу',
     importFileHint: 'Excel/CSV — тек мәтін. ZIP-архив (кесте + фото қалтасы) — фотомен.',
     importingFile: 'Жүктелуде…',
@@ -228,6 +236,7 @@ function applyStaticText() {
   document.getElementById('importFileBtn').textContent = t('importFileBtn');
   document.getElementById('importFileHint').textContent = t('importFileHint');
   document.getElementById('syncMoyskladBtn').textContent = t('syncMoyskladBtn');
+  document.getElementById('findPricesBtn').textContent = t('findPricesBtn');
   document.getElementById('l_paste').textContent = t('l_paste');
   document.getElementById('pasteHint').textContent = t('pasteHint');
   document.getElementById('l_name').textContent = t('l_name');
@@ -684,6 +693,31 @@ async function syncMoysklad() {
   }
 }
 
+async function findMoyskladPrices() {
+  const btn = document.getElementById('findPricesBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t('findingPrices');
+
+  try {
+    const res = await fetch(API_BASE + '/api/manage/find-moysklad-prices', {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result?.error?.message || 'failed');
+
+    showToast(t('findPricesDone', result.updated, result.total));
+    loadProducts();
+  } catch (e) {
+    console.error(e);
+    showToast(t('findPricesError'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
 function setupImportFile() {
   const btn = document.getElementById('importFileBtn');
   const input = document.getElementById('importFileInput');
@@ -977,6 +1011,7 @@ function init() {
   setupPricing();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
+  document.getElementById('findPricesBtn').addEventListener('click', () => findMoyskladPrices());
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
