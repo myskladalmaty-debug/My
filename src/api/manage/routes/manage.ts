@@ -13,6 +13,7 @@ export default {
     { method: 'GET', path: '/manage/pricing-settings', handler: 'manage.getPricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/pricing-settings', handler: 'manage.savePricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/apply-pricing', handler: 'manage.applyPricing', config: { auth: false } },
+    { method: 'POST', path: '/manage/find-moysklad-prices', handler: 'manage.findMoyskladPrices', config: { auth: false } },
     { method: 'POST', path: '/manage/import-file', handler: 'manage.importFile', config: { auth: false } },
     { method: 'POST', path: '/manage/telegram-webhook', handler: 'manage.telegramWebhook', config: { auth: false } },
   ],
