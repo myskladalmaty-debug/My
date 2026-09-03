@@ -44,6 +44,29 @@ async function getStockMap(token: string): Promise<Record<string, number>> {
   return map;
 }
 
+// Same /report/stock/all report as getStockMap, but keeping the raw rows
+// (name + price + stock) instead of just a stock-by-id map — this is where
+// MoySklad actually keeps a computed cost price per product ("price", in
+// kopecks), which is often populated even when the product card's own
+// "buyPrice" attribute was never filled in by hand. Cached for the process
+// lifetime; call resetStockReportCache() if a fresher read is ever needed.
+let stockReportCache: any[] | null = null;
+
+async function getStockReportRows(token: string): Promise<any[]> {
+  if (stockReportCache) return stockReportCache;
+  const rows: any[] = [];
+  let offset = 0;
+  const limit = 1000;
+  while (true) {
+    const json: any = await msFetch(`/report/stock/all?limit=${limit}&offset=${offset}`, token);
+    rows.push(...(json.rows || []));
+    offset += limit;
+    if (offset >= (json.meta?.size || 0)) break;
+  }
+  stockReportCache = rows;
+  return rows;
+}
+
 // Builds a description in the format the shop actually uses on Telegram/
 // WhatsApp posts (📦 В коробке / ✅ Твой хороший выбор), filled with real
 // data (real pack size) — used only when MoySklad itself has no description
@@ -204,9 +227,25 @@ async function lookupMoyskladPrice(sku: string): Promise<{ costPrice: number; wh
       .split('')
       .map((ch) => cyrillicToLatin[ch.toUpperCase()] || ch)
       .join('');
-    // MoySklad products use "article" or "code" for their model number
-    // depending on how they were entered — sometimes neither, and the model
-    // only shows up inside the product's name. Try all three, in that order.
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+    const target = normalize(normalizedSku);
+
+    // The product card's own "buyPrice" attribute is very often left empty
+    // by hand. MoySklad separately computes an actual cost per item in its
+    // stock report (moving/weighted average from real incoming supplies) —
+    // that's what has real numbers, and it's matched by product name here
+    // (same approach already proven working in the WhatsApp agent).
+    const reportRows = await getStockReportRows(msToken);
+    const reportMatch = reportRows.find((r: any) => normalize(r.name || '').includes(target));
+    if (reportMatch && (reportMatch.price ?? 0) > 0) {
+      const costPrice = reportMatch.price / 100;
+      const settings = await getPricingSettings();
+      return { costPrice, wholesalePrice: computePrice(costPrice, settings) };
+    }
+
+    // Fall back to the product card's own buyPrice, matched by article/code
+    // first (exact fields), then the same name-substring match, in case the
+    // stock report didn't have this product at all (e.g. zero stock ever).
     const skuEnc = encodeURIComponent(normalizedSku);
     let found: any = await msFetch(`/entity/product?filter=article=${skuEnc}`, msToken);
     if (!found.rows?.length) {
@@ -214,8 +253,6 @@ async function lookupMoyskladPrice(sku: string): Promise<{ costPrice: number; wh
     }
     let row = found.rows?.[0];
     if (!row) {
-      const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-      const target = normalize(normalizedSku);
       const searched: any = await msFetch(`/entity/product?search=${skuEnc}`, msToken);
       row = (searched.rows || []).find((r: any) => normalize(r.name || '').includes(target));
     }
