@@ -93,6 +93,7 @@ function productCardHtml(p) {
       </div>
       <div class="card-body">
         <h3>${p.sku || p.name}</h3>
+        ${p.wholesalePrice > 0 ? `<div class="price">${money(p.wholesalePrice)}</div>` : ''}
         ${p.description ? `<div class="desc">${p.description}</div>` : ''}
         <div class="card-footer">
           <span class="minqty">${t('fromQty', p.minOrderQty || 1)}</span>
