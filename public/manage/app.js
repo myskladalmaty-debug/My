@@ -1,4 +1,7 @@
 const API_BASE = '';
+// n8n workflow that looks up MoySklad cost prices and writes them back —
+// triggered directly from the "Найти цены" button below.
+const N8N_FIND_PRICES_WEBHOOK = 'https://n8n4701.hostkey.in/webhook/find-prices';
 const TOKEN_KEY = 'sklad_manage_token';
 const LANG_KEY = 'sklad_manage_lang';
 const LOW_STOCK_THRESHOLD = 5;
@@ -702,9 +705,9 @@ async function bulkFindPrices() {
   btn.textContent = t('findingPrices');
 
   try {
-    const res = await fetch(API_BASE + '/api/manage/find-moysklad-prices', {
+    const res = await fetch(N8N_FIND_PRICES_WEBHOOK, {
       method: 'POST',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
     });
     const result = await res.json();
