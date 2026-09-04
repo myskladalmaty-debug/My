@@ -494,6 +494,186 @@
     padding: 28px 20px 36px;
   }
 
+  /* ---------- Cart ---------- */
+  .cart-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 10px;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cart-btn:hover { border-color: var(--accent); }
+  .cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+  .add-to-cart-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .add-to-cart-btn:hover { background: var(--accent-dark); }
+  .add-to-cart-btn:active { transform: scale(0.97); }
+  .add-to-cart-btn.added { background: var(--success); }
+
+  .cart-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 40;
+  }
+  .cart-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .cart-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(380px, 100vw);
+    background: var(--card-bg);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 41;
+  }
+  .cart-drawer.open { transform: translateX(0); }
+  .cart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cart-header h2 { margin: 0; font-size: 18px; }
+  .cart-close {
+    border: none;
+    background: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .cart-close:hover { background: var(--bg); }
+  .cart-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 20px;
+  }
+  .cart-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 40px 10px;
+    font-size: 14px;
+  }
+  .cart-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cart-item:last-child { border-bottom: none; }
+  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-sku { font-weight: 700; font-size: 14px; }
+  .cart-item-name {
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cart-item-qty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .cart-item-qty span { min-width: 18px; text-align: center; font-weight: 600; font-size: 14px; }
+  .qty-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+  }
+  .qty-btn:hover { border-color: var(--accent); }
+  .cart-item-remove {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+  .cart-item-remove:hover { background: var(--danger-soft); color: var(--danger); }
+  .cart-footer {
+    padding: 16px 20px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .cart-discount-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .cart-total {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .cart-checkout {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: #25d366;
+    color: #fff;
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cart-checkout:hover { filter: brightness(0.95); }
+  .cart-checkout:disabled { opacity: 0.5; cursor: default; }
+
   /* ---------- Responsive ---------- */
   @media (max-width: 560px) {
     header { padding: 14px 16px; }
@@ -520,6 +700,7 @@
     </div>
     <div class="header-actions">
       <a class="header-whatsapp" href="https://wa.me/77772544464" target="_blank" rel="noopener">💬 +7 777 254 44 64</a>
+      <button class="cart-btn" id="cartBtn" aria-label="Корзина">🛒<span class="cart-badge" id="cartBadge" hidden>0</span></button>
       <div class="lang-switch" id="langSwitch">
         <button data-lang="ru">RU</button>
         <button data-lang="kz">ҚАЗ</button>
@@ -553,6 +734,20 @@
 
   <footer class="site-footer">Склад — оптовая продажа</footer>
 </div>
+
+<div class="cart-overlay" id="cartOverlay"></div>
+<aside class="cart-drawer" id="cartDrawer">
+  <div class="cart-header">
+    <h2 id="cartTitle"></h2>
+    <button class="cart-close" id="cartCloseBtn" aria-label="Закрыть">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-footer">
+    <div class="cart-discount-hint" id="cartDiscountHint"></div>
+    <div class="cart-total" id="cartTotal"></div>
+    <button class="cart-checkout" id="cartCheckoutBtn"></button>
+  </div>
+</aside>
 
 <script src="/catalog/app.js"></script>
 
