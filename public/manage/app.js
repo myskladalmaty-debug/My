@@ -85,6 +85,7 @@ const translations = {
     pricingApplied: (n) => `Готово — обновлено цен: ${n}`,
     pricingSaved: 'Настройки сохранены',
     syncMoyskladBtn: '🔄 Синхронизировать с МойСклад',
+    syncNewOnlyBtn: '🆕 Новинки за 7 дней',
     syncingMoysklad: (n) => `Синхронизация… (${n})`,
     syncMoyskladDone: (imported, updated, deleted) => `Готово: добавлено ${imported}, обновлено ${updated}, удалено ${deleted}`,
     syncMoyskladError: 'Не удалось синхронизировать с МойСклад',
@@ -176,6 +177,7 @@ const translations = {
     pricingApplied: (n) => `Дайын — жаңартылған бағалар: ${n}`,
     pricingSaved: 'Баптаулар сақталды',
     syncMoyskladBtn: '🔄 МойСклад-пен синхрондау',
+    syncNewOnlyBtn: '🆕 7 күндегі жаңалар',
     syncingMoysklad: (n) => `Синхрондалуда… (${n})`,
     syncMoyskladDone: (imported, updated, deleted) => `Дайын: қосылды ${imported}, жаңартылды ${updated}, жойылды ${deleted}`,
     syncMoyskladError: 'МойСклад-пен синхрондау мүмкін болмады',
@@ -239,6 +241,7 @@ function applyStaticText() {
   document.getElementById('importFileBtn').textContent = t('importFileBtn');
   document.getElementById('importFileHint').textContent = t('importFileHint');
   document.getElementById('syncMoyskladBtn').textContent = t('syncMoyskladBtn');
+  document.getElementById('syncNewOnlyBtn').textContent = t('syncNewOnlyBtn');
   document.getElementById('l_paste').textContent = t('l_paste');
   document.getElementById('pasteHint').textContent = t('pasteHint');
   document.getElementById('l_name').textContent = t('l_name');
@@ -646,8 +649,8 @@ function renderPhotoPreview(urls) {
 
 // ---------- Import products from Excel/CSV file ----------
 
-async function syncMoysklad() {
-  const btn = document.getElementById('syncMoyskladBtn');
+async function syncMoysklad(sinceDays) {
+  const btn = document.getElementById(sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
 
@@ -656,11 +659,12 @@ async function syncMoysklad() {
   let updated = 0;
   let deleted = 0;
   const errors = [];
+  const sinceParam = sinceDays ? `&sinceDays=${sinceDays}` : '';
 
   try {
     while (true) {
       btn.textContent = t('syncingMoysklad', imported + updated);
-      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=50`, {
+      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=50${sinceParam}`, {
         method: 'POST',
         headers: authHeaders(),
       });
@@ -1018,6 +1022,7 @@ function init() {
   setupPricing();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
+  document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(7));
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
