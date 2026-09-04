@@ -485,7 +485,21 @@ export default {
     const offset = parseInt(ctx.query.offset, 10) || 0;
     const withImages = ctx.query.images !== 'false';
 
-    const productsJson: any = await msFetch(`/entity/product?limit=${limit}&offset=${offset}`, token);
+    // Optional: only look at products MoySklad has touched in the last N
+    // days — much faster than paging through everything when the admin just
+    // wants to check for new arrivals. MoySklad only supports filtering by
+    // "updated" (not "created"), but for a genuinely new product that's the
+    // same moment anyway.
+    const sinceDays = parseInt(ctx.query.sinceDays, 10);
+    let filterParam = '';
+    if (sinceDays > 0) {
+      const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const stamp = `${since.getFullYear()}-${pad(since.getMonth() + 1)}-${pad(since.getDate())} ${pad(since.getHours())}:${pad(since.getMinutes())}:${pad(since.getSeconds())}`;
+      filterParam = `&filter=${encodeURIComponent(`updated>${stamp}`)}`;
+    }
+
+    const productsJson: any = await msFetch(`/entity/product?limit=${limit}&offset=${offset}${filterParam}`, token);
     const total = productsJson.meta?.size || 0;
     const rows = productsJson.rows || [];
 
