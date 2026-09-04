@@ -713,8 +713,8 @@ async function bulkFindPrices() {
   // has what it needs to look the cost up in MoySklad.
   const items = ids
     .map((id) => products.find((p) => p.documentId === id))
-    .filter((p) => p && p.sku)
-    .map((p) => ({ id: p.documentId, sku: p.sku }));
+    .filter((p) => p && (p.sku || p.moyskladId))
+    .map((p) => ({ id: p.documentId, sku: p.sku || null, moyskladId: p.moyskladId || null }));
 
   try {
     const res = await fetch(N8N_FIND_PRICES_WEBHOOK, {
