@@ -556,8 +556,9 @@ export default {
         // MoySklad data changed or this field wasn't captured on an
         // earlier run. Only fill in description if it's still empty, so
         // we never overwrite something the admin already wrote by hand.
-        // In stock -> published, so it's visible on the storefront.
-        const updateData: any = { stock, minOrderQty, costPrice, published: true };
+        // Publishing is a manual, deliberate action in the cabinet — sync
+        // never flips it on (or off) by itself.
+        const updateData: any = { stock, minOrderQty, costPrice };
         if (!existing[0].description || !existing[0].description.trim()) {
           updateData.description = row.description || buildAutoDescription(minOrderQty);
         }
@@ -599,7 +600,7 @@ export default {
         costPrice,
         minOrderQty,
         stock,
-        published: true, // reaching this point already means stock > 0
+        published: false, // sync only ever creates drafts — publishing is manual, in the cabinet
         moyskladId: row.id,
         category: categoryId,
         isNew: true, // first time we've seen this product — mark it as new
