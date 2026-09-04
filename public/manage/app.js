@@ -708,11 +708,19 @@ async function bulkFindPrices() {
   btn.disabled = true;
   btn.textContent = t('findingPrices');
 
+  // Send the article/model straight in the webhook body — n8n doesn't need
+  // a separate "fetch our product list, then match by id" step, it already
+  // has what it needs to look the cost up in MoySklad.
+  const items = ids
+    .map((id) => products.find((p) => p.documentId === id))
+    .filter((p) => p && p.sku)
+    .map((p) => ({ id: p.documentId, sku: p.sku }));
+
   try {
     const res = await fetch(N8N_FIND_PRICES_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ ids, items }),
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result?.error?.message || 'failed');
