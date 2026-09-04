@@ -20,14 +20,20 @@ async function msFetch(pathname: string, token: string) {
   return res.json();
 }
 
-// Stock quantities live in a separate report endpoint, keyed by the
-// product's id (extracted from the row's meta.href). Cached in memory for
-// the lifetime of the server process since it doesn't change during an import run.
-let stockMapCache: Record<string, number> | null = null;
+// Stock quantities (and cost) live in a separate report endpoint, keyed by
+// the product's id (extracted from the row's meta.href). Cached in memory
+// for the lifetime of the server process since it doesn't change during an
+// import run.
+// Keyed by MoySklad product id. "price" here is the report's own computed
+// cost (kopecks) — this is the number that's actually reliable; the product
+// card's own "buyPrice" attribute is very often left at 0/stale by hand,
+// see importMoysklad below.
+type StockMapEntry = { stock: number; price: number };
+let stockMapByIdCache: Record<string, StockMapEntry> | null = null;
 
-async function getStockMap(token: string): Promise<Record<string, number>> {
-  if (stockMapCache) return stockMapCache;
-  const map: Record<string, number> = {};
+async function getStockMap(token: string): Promise<Record<string, StockMapEntry>> {
+  if (stockMapByIdCache) return stockMapByIdCache;
+  const map: Record<string, StockMapEntry> = {};
   let offset = 0;
   const limit = 1000;
   while (true) {
@@ -35,12 +41,12 @@ async function getStockMap(token: string): Promise<Record<string, number>> {
     for (const row of json.rows || []) {
       const href: string = row.meta?.href || '';
       const id = href.split('/').pop()?.split('?')[0];
-      if (id) map[id] = row.stock ?? row.quantity ?? 0;
+      if (id) map[id] = { stock: row.stock ?? row.quantity ?? 0, price: row.price ?? 0 };
     }
     offset += limit;
     if (offset >= (json.meta?.size || 0)) break;
   }
-  stockMapCache = map;
+  stockMapByIdCache = map;
   return map;
 }
 
@@ -504,6 +510,7 @@ export default {
     const rows = productsJson.rows || [];
 
     const stockMap = await getStockMap(token);
+    const pricingSettings = await getPricingSettings();
     const categoryCache = new Map<string, string>();
 
     let imported = 0;
@@ -514,9 +521,16 @@ export default {
     let deleted = 0;
 
     async function processRow(row: any) {
-      const stock = stockMap[row.id] ?? 0;
+      const stockEntry = stockMap[row.id];
+      const stock = stockEntry?.stock ?? 0;
       const minOrderQty = row.packs?.[0]?.quantity || 1;
-      const costPrice = (row.buyPrice?.value ?? 0) / 100;
+      // MoySklad's stock report computes a real cost (moving average from
+      // actual incoming supplies) — the product card's own "buyPrice"
+      // attribute is very often left at 0 or stale by hand, so only fall
+      // back to it when the report genuinely has nothing for this product.
+      const reportCost = (stockEntry?.price ?? 0) / 100;
+      const cardCost = (row.buyPrice?.value ?? 0) / 100;
+      const costPrice = reportCost > 0 ? reportCost : cardCost;
 
       const existing: any = await strapi.documents('api::product.product').findMany({
         filters: { moyskladId: row.id },
@@ -569,14 +583,19 @@ export default {
         ? await findOrCreateCategoryId(row.pathName.split('/').filter(Boolean).pop() || '', categoryCache)
         : null;
 
+      // Wholesale price comes from our own markup formula on the real cost —
+      // MoySklad's own "sale price" field is a separate, often-unset price
+      // type and isn't what the shop actually sells at. Only fall back to it
+      // when there's no cost to compute from at all.
       const priceMinor = row.salePrices?.[0]?.value ?? 0;
+      const wholesalePrice = costPrice > 0 ? computePrice(costPrice, pricingSettings) : priceMinor / 100;
       const sku = row.article || row.code || null;
 
       const data: any = {
         name: row.name,
         sku,
         description: row.description || buildAutoDescription(minOrderQty),
-        wholesalePrice: priceMinor / 100,
+        wholesalePrice,
         costPrice,
         minOrderQty,
         stock,
