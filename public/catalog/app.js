@@ -80,7 +80,7 @@ const translations = {
   },
 };
 
-let lang = localStorage.getItem(LANG_KEY) || 'ru';
+let lang = localStorage.getItem(LANG_KEY) || 'kz';
 function t(key, ...args) {
   const value = translations[lang][key];
   return typeof value === 'function' ? value(...args) : value;
