@@ -28,6 +28,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
   }
   header h1 { margin: 0; font-size: 20px; }
   header button {
@@ -41,6 +43,15 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+  .header-main-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .header-main-actions .add-btn {
+    padding: 8px 14px;
+    font-size: 13px;
   }
   .lang-switch {
     display: flex;
@@ -58,17 +69,17 @@
   .stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 8px;
+    margin-bottom: 12px;
   }
   .stat-card {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
+    border-radius: 8px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     cursor: pointer;
     font-family: inherit;
     text-align: left;
@@ -78,9 +89,9 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 1px var(--accent);
   }
-  .stat-icon { font-size: 22px; }
-  .stat-value { font-size: 20px; font-weight: 700; line-height: 1.1; }
-  .stat-label { font-size: 12px; color: var(--muted); }
+  .stat-icon { font-size: 16px; }
+  .stat-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
+  .stat-label { font-size: 11px; color: var(--muted); }
   .stat-card.warn .stat-value { color: #b45309; }
   #countLabel a { color: var(--accent); }
   .container {
@@ -126,11 +137,11 @@
   }
 
   /* --- Product list --- */
-  .toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
+  .count-label {
+    color: var(--muted);
+    font-size: 14px;
+    min-height: 20px;
+    margin-bottom: 8px;
   }
   .add-btn {
     padding: 10px 18px;
@@ -140,6 +151,26 @@
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
+  }
+  .add-btn.outline {
+    background: #fff;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .add-btn.small {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .secondary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .hint.inline {
+    margin: 0;
+    flex-basis: 100%;
   }
   table {
     width: 100%;
@@ -294,6 +325,32 @@
     font-size: 14px;
     display: none;
   }
+  .folder-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .folder-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff8ea;
+    border: 1px solid #f0c36d;
+    color: #8a6d00;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .folder-icon { font-size: 14px; }
+  .folder-tab.active {
+    background: #b45309;
+    border-color: #b45309;
+    color: #fff;
+  }
   .chips {
     display: flex;
     gap: 6px;
@@ -312,6 +369,16 @@
   .chips button.active {
     background: var(--accent);
     border-color: var(--accent);
+    color: #fff;
+  }
+  .chips button.issue {
+    border-color: #f0c36d;
+    background: #fff8ea;
+    color: #8a6d00;
+  }
+  .chips button.issue.active {
+    background: #b45309;
+    border-color: #b45309;
     color: #fff;
   }
   .bulk-bar {
@@ -370,6 +437,10 @@
 <div id="appScreen" class="hidden">
   <header>
     <h1>Склад</h1>
+    <div class="header-main-actions">
+      <button class="add-btn" id="syncNewOnlyBtn"></button>
+      <button class="add-btn" id="addBtn"></button>
+    </div>
     <div class="header-right">
       <button id="pricingBtn">⚙️</button>
       <div class="lang-switch" id="langSwitch">
@@ -382,19 +453,17 @@
 
   <div class="container">
     <div class="stats" id="stats"></div>
+    <div class="folder-tabs" id="folderTabs"></div>
     <div class="chips" id="chips"></div>
 
-    <div class="toolbar">
-      <div id="countLabel" style="color: var(--muted); font-size: 14px;"></div>
-      <div style="display:flex; gap:8px;">
-        <button class="add-btn" id="syncMoyskladBtn" style="background:#fff; color:var(--accent); border:1px solid var(--accent);"></button>
-        <button class="add-btn" id="syncNewOnlyBtn" style="background:#fff; color:var(--accent); border:1px solid var(--accent);"></button>
-        <button class="add-btn" id="importFileBtn" style="background:#fff; color:var(--accent); border:1px solid var(--accent);"></button>
-        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv,.zip" class="hidden" />
-        <button class="add-btn" id="addBtn"></button>
-      </div>
+    <div id="countLabel" class="count-label"></div>
+
+    <div class="secondary-actions">
+      <button class="add-btn outline small" id="syncMoyskladBtn"></button>
+      <button class="add-btn outline small" id="importFileBtn"></button>
+      <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv,.zip" class="hidden" />
+      <span class="hint inline" id="importFileHint"></span>
     </div>
-    <div class="hint" id="importFileHint" style="margin-top:-10px;"></div>
 
     <div class="bulk-bar hidden" id="bulkBar">
       <span id="bulkCount"></span>
