@@ -600,7 +600,7 @@ export default {
         costPrice,
         minOrderQty,
         stock,
-        published: false, // sync only ever creates drafts — publishing is manual, in the cabinet
+        published: true, // brand-new product from MoySklad sync (never seen before) — publish right away so weekly arrivals show up without a manual click; updates to already-existing products never touch `published`
         moyskladId: row.id,
         category: categoryId,
         isNew: true, // first time we've seen this product — mark it as new
