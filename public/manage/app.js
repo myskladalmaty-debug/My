@@ -14,6 +14,7 @@ const translations = {
     logoutBtn: 'Выйти',
     addBtn: '+ Добавить товар',
     countLabel: (n) => `Товаров: ${n}`,
+    countLabelFiltered: (n) => `Показано: ${n}`,
     thName: 'Название',
     thPrice: 'Цена',
     thStock: 'Остаток',
@@ -106,6 +107,7 @@ const translations = {
     logoutBtn: 'Шығу',
     addBtn: '+ Тауар қосу',
     countLabel: (n) => `Тауарлар: ${n}`,
+    countLabelFiltered: (n) => `Көрсетілді: ${n}`,
     thName: 'Аты',
     thPrice: 'Бағасы',
     thStock: 'Қалдық',
@@ -272,6 +274,7 @@ function setLang(newLang) {
   localStorage.setItem(LANG_KEY, lang);
   applyStaticText();
   renderStats();
+  renderFolderTabs();
   renderChips();
   renderTable();
 }
@@ -344,6 +347,7 @@ async function loadProducts() {
     products = (json.data || []).map(normalize);
     selected = new Set([...selected].filter(id => products.some(p => p.documentId === id)));
     renderStats();
+    renderFolderTabs();
     renderChips();
     renderTable();
   } catch (e) {
@@ -378,6 +382,7 @@ function setFilter(key) {
   statFilter = statFilter === key ? 'all' : key;
   selected.clear();
   renderStats();
+  renderFolderTabs();
   renderChips();
   renderTable();
 }
@@ -416,27 +421,46 @@ function renderStats() {
   });
 }
 
+// "Новинки" — отдельная папка, а не мелкий чип среди прочих: сюда попадают
+// абсолютно все новые товары, откуда бы они ни пришли (МойСклад, файл,
+// Телеграм), и это то, что сотрудник открывает в первую очередь.
+function renderFolderTabs() {
+  const isNewCount = products.filter(FILTERS.isNew).length;
+
+  document.getElementById('folderTabs').innerHTML = `
+    <button type="button" class="folder-tab ${statFilter === 'isNew' ? 'active' : ''}" data-filter="isNew">
+      <span class="folder-icon">🆕</span>
+      <span>${t('chipNew')} (${isNewCount})</span>
+    </button>
+  `;
+
+  document.querySelectorAll('#folderTabs [data-filter]').forEach(btn => {
+    btn.addEventListener('click', () => setFilter(btn.dataset.filter));
+  });
+}
+
 function renderChips() {
   const draftCount = products.filter(FILTERS.draft).length;
   const highStockCount = products.filter(FILTERS.highStock).length;
   const noPhotoCount = products.filter(FILTERS.noPhoto).length;
   const noPriceCount = products.filter(FILTERS.noPrice).length;
   const noDescriptionCount = products.filter(FILTERS.noDescription).length;
-  const isNewCount = products.filter(FILTERS.isNew).length;
   const telegramCount = products.filter(FILTERS.telegram).length;
 
+  // "issue" — данные, которые стоит исправить (без фото/цены/описания);
+  // "status" — просто метки/статусы, не обязательно проблема.
+  // "Новинки" сюда не входят — у них своя отдельная папка над чипами.
   const chips = [
-    ['draft', t('chipDraft'), draftCount],
-    ['highStock', t('chipHighStock'), highStockCount],
-    ['noPhoto', t('chipNoPhoto'), noPhotoCount],
-    ['noPrice', t('chipNoPrice'), noPriceCount],
-    ['noDescription', t('chipNoDescription'), noDescriptionCount],
-    ['isNew', t('chipNew'), isNewCount],
-    ['telegram', t('chipTelegram'), telegramCount],
+    ['draft', t('chipDraft'), draftCount, 'status'],
+    ['noPhoto', t('chipNoPhoto'), noPhotoCount, 'issue'],
+    ['noPrice', t('chipNoPrice'), noPriceCount, 'issue'],
+    ['noDescription', t('chipNoDescription'), noDescriptionCount, 'issue'],
+    ['telegram', t('chipTelegram'), telegramCount, 'status'],
+    ['highStock', t('chipHighStock'), highStockCount, 'status'],
   ];
 
-  document.getElementById('chips').innerHTML = chips.map(([key, label, count]) => `
-    <button type="button" class="${statFilter === key ? 'active' : ''}" data-filter="${key}">${label} (${count})</button>
+  document.getElementById('chips').innerHTML = chips.map(([key, label, count, type]) => `
+    <button type="button" class="${type} ${statFilter === key ? 'active' : ''}" data-filter="${key}">${type === 'issue' ? '⚠️ ' : ''}${label} (${count})</button>
   `).join('');
 
   document.querySelectorAll('#chips [data-filter]').forEach(btn => {
@@ -464,9 +488,11 @@ function renderTable() {
   const list = filteredProducts();
   const countLabelEl = document.getElementById('countLabel');
   if (statFilter === 'all') {
-    countLabelEl.textContent = t('countLabel', products.length);
+    // Не дублируем "Всего товаров" из карточки статистики выше — здесь
+    // текст нужен только когда включён фильтр и список стал короче.
+    countLabelEl.textContent = '';
   } else {
-    countLabelEl.innerHTML = `${t('countLabel', list.length)} · <a href="#" id="clearFilterLink">${t('clearFilter')}</a>`;
+    countLabelEl.innerHTML = `${t('countLabelFiltered', list.length)} · <a href="#" id="clearFilterLink">${t('clearFilter')}</a>`;
     document.getElementById('clearFilterLink').addEventListener('click', (e) => {
       e.preventDefault();
       setFilter('all');
