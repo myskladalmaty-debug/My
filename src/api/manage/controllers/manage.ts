@@ -497,6 +497,7 @@ export default {
     // "updated" (not "created"), but for a genuinely new product that's the
     // same moment anyway.
     const sinceDays = parseInt(ctx.query.sinceDays, 10);
+    const isNewArrivalsRun = sinceDays > 0;
     let filterParam = '';
     if (sinceDays > 0) {
       const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
@@ -541,13 +542,10 @@ export default {
       // Out of stock: don't bother creating it (skips the photo download
       // too — no point spending time on a product we won't show), and if
       // it was already imported before but is now out of stock, remove it.
-      if (stock <= 0) {
-        if (existing?.length) {
-          await strapi.documents('api::product.product').delete({ documentId: existing[0].documentId } as any);
-          deleted += 1;
-        } else {
-          skipped += 1;
-        }
+      // Never delete anything on sync — an already-imported product just gets
+      // its numbers refreshed below, even if stock dropped to zero.
+      if (stock <= 0 && !existing?.length) {
+        skipped += 1;
         return;
       }
 
@@ -600,10 +598,13 @@ export default {
         costPrice,
         minOrderQty,
         stock,
-        published: true, // brand-new product from MoySklad sync (never seen before) — publish right away so weekly arrivals show up without a manual click; updates to already-existing products never touch `published`
+        // Only the "new arrivals" run (sinceDays set) publishes and files
+        // products under "Новинки". A full sync creates plain drafts, and
+        // updates to already-existing products never touch either flag.
+        published: isNewArrivalsRun,
         moyskladId: row.id,
         category: categoryId,
-        isNew: true, // first time we've seen this product — mark it as new
+        isNew: isNewArrivalsRun,
         source: 'moysklad',
       };
 
