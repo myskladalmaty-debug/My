@@ -706,14 +706,6 @@ async function syncMoysklad(sinceDays) {
       offset = result.nextOffset;
     }
 
-    // Recompute wholesale prices for anything newly imported (skips
-    // products already priced by hand).
-    await fetch(API_BASE + '/api/manage/apply-pricing', {
-      method: 'POST',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-
     showToast(t('syncMoyskladDone', imported, updated, deleted));
     if (errors.length) console.error('MoySklad sync errors:', errors);
     loadProducts();
