@@ -557,6 +557,13 @@ export default {
         // Publishing is a manual, deliberate action in the cabinet — sync
         // never flips it on (or off) by itself.
         const updateData: any = { stock, minOrderQty, costPrice };
+        // New-arrivals run: anything that changed in the window AND is in
+        // stock is a fresh arrival — publish it and file it under "Новинки",
+        // even if it was already sitting on the site as a draft.
+        if (isNewArrivalsRun && stock > 0) {
+          updateData.published = true;
+          updateData.isNew = true;
+        }
         if (!existing[0].description || !existing[0].description.trim()) {
           updateData.description = row.description || buildAutoDescription(minOrderQty);
         }
