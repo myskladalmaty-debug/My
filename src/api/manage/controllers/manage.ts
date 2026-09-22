@@ -30,9 +30,17 @@ async function msFetch(pathname: string, token: string) {
 // see importMoysklad below.
 type StockMapEntry = { stock: number; price: number };
 let stockMapByIdCache: Record<string, StockMapEntry> | null = null;
+let stockMapCachedAt = 0;
+// A full sync pages through import-moysklad with several quick, separate
+// HTTP requests (one per page) — this TTL lets those reuse one fetch of the
+// report instead of re-downloading it per page. But it must expire soon,
+// otherwise a stock change in MoySklad (e.g. posting a supply) stays
+// invisible to every sync click until the server process happens to
+// restart, which is exactly the bug this TTL fixes.
+const STOCK_CACHE_TTL_MS = 3 * 60 * 1000;
 
 async function getStockMap(token: string): Promise<Record<string, StockMapEntry>> {
-  if (stockMapByIdCache) return stockMapByIdCache;
+  if (stockMapByIdCache && Date.now() - stockMapCachedAt < STOCK_CACHE_TTL_MS) return stockMapByIdCache;
   const map: Record<string, StockMapEntry> = {};
   let offset = 0;
   const limit = 1000;
@@ -47,6 +55,7 @@ async function getStockMap(token: string): Promise<Record<string, StockMapEntry>
     if (offset >= (json.meta?.size || 0)) break;
   }
   stockMapByIdCache = map;
+  stockMapCachedAt = Date.now();
   return map;
 }
 
@@ -54,12 +63,13 @@ async function getStockMap(token: string): Promise<Record<string, StockMapEntry>
 // (name + price + stock) instead of just a stock-by-id map — this is where
 // MoySklad actually keeps a computed cost price per product ("price", in
 // kopecks), which is often populated even when the product card's own
-// "buyPrice" attribute was never filled in by hand. Cached for the process
-// lifetime; call resetStockReportCache() if a fresher read is ever needed.
+// "buyPrice" attribute was never filled in by hand. Same short TTL as
+// getStockMap above, for the same reason (see STOCK_CACHE_TTL_MS).
 let stockReportCache: any[] | null = null;
+let stockReportCachedAt = 0;
 
 async function getStockReportRows(token: string): Promise<any[]> {
-  if (stockReportCache) return stockReportCache;
+  if (stockReportCache && Date.now() - stockReportCachedAt < STOCK_CACHE_TTL_MS) return stockReportCache;
   const rows: any[] = [];
   let offset = 0;
   const limit = 1000;
@@ -70,6 +80,7 @@ async function getStockReportRows(token: string): Promise<any[]> {
     if (offset >= (json.meta?.size || 0)) break;
   }
   stockReportCache = rows;
+  stockReportCachedAt = Date.now();
   return rows;
 }
 
