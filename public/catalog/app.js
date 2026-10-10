@@ -403,6 +403,7 @@ function setupLoadMore() {
 }
 
 function renderStaticText() {
+  document.title = t('pageTitle') + (lang === 'ru' ? ' — оптом' : ' — көтерме');
   document.getElementById('pageTitle').textContent = t('pageTitle');
   document.getElementById('pageSubtitle').textContent = t('pageSubtitle');
   document.getElementById('search').placeholder = t('searchPlaceholder');
