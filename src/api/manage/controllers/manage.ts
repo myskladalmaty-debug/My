@@ -578,6 +578,13 @@ export default {
         if (!existing[0].description || !existing[0].description.trim()) {
           updateData.description = row.description || buildAutoDescription(minOrderQty);
         }
+        // Price follows the cost: cost + markup, rounded up. A price somebody
+        // typed in by hand (priceManuallySet) is never touched. Without this a
+        // product that was imported before its cost was known — or whose cost
+        // changed — kept a stale/zero price until someone ran "recalculate".
+        if (costPrice > 0 && !existing[0].priceManuallySet) {
+          updateData.wholesalePrice = computePrice(costPrice, pricingSettings);
+        }
         // Backfill the photo if it's missing OR still points at the old
         // local-disk storage (a broken /uploads/... path — that file only
         // ever existed on the one machine that originally downloaded it,
