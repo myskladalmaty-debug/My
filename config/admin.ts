@@ -1,6 +1,9 @@
 import type { Core } from '@strapi/strapi';
 
 const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Admin => ({
+  // Стандартная панель Strapi (/admin) закрыта: товарами управляют из дашборда и кабинета /manage/.
+  // Сам Strapi остаётся внутри как база товаров и фото; API каталога работает как раньше.
+  serveAdminPanel: env.bool('SERVE_ADMIN_PANEL', false),
   auth: {
     secret: env('ADMIN_JWT_SECRET')!,
   },
