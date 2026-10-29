@@ -454,83 +454,25 @@ const FILTERS = {
   highStock: p => (p.stock ?? 0) > HIGH_STOCK_THRESHOLD,
   noPhoto: p => !(p.images && p.images.length),
   noPrice: p => !((p.wholesalePrice ?? 0) > 0),
-  noStock: p => (p.stock ?? 0) <= 0,
   noDescription: p => !(p.description && p.description.trim()),
   isNew: p => !!p.isNew,
   telegram: p => p.source === 'telegram',
 };
 
 let searchText = '';
-let viewMode = (() => { try { return localStorage.getItem('sklad_manage_view') || 'grid'; } catch { return 'grid'; } })();
 
 function filteredProducts() {
   const q = searchText.trim().toLowerCase();
   return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter)
-    .filter(p => !q || `${p.name || ''} ${p.sku || ''}`.toLowerCase().includes(q))
-    // on-site products first, then new ones, then the rest (stable: keeps the name order inside each group)
-    .sort((a, b) => (b.published ? 2 : 0) + (b.isNew ? 1 : 0) - ((a.published ? 2 : 0) + (a.isNew ? 1 : 0)));
+    .filter(p => !q || `${p.name || ''} ${p.sku || ''}`.toLowerCase().includes(q));
 }
-
-const L = (ru, kz) => (lang === 'kz' ? kz : ru);
 
 function photoUrl(p) {
   const img = p.images && p.images[0];
   if (!img) return '';
-  const f = img.formats && (img.formats.small || img.formats.thumbnail);
+  const f = img.formats && (img.formats.thumbnail || img.formats.small);
   const u = (f && f.url) || img.url || '';
   return u.startsWith('http') ? u : API_BASE + u;
-}
-
-// Left panel: sections (all / new / published ...), what needs attention, and the category tree with counts.
-function renderSidebar() {
-  const el = document.getElementById('sidebar');
-  if (!el) return;
-  const cnt = (f) => products.filter(FILTERS[f]).length;
-  const item = (key, icon, label, n, extra = '') => `<button type="button" class="sb-item ${extra} ${statFilter === key && (key !== 'all' || categoryFilter === 'all') ? 'active' : ''}" data-sf="${key}"><span>${icon} ${label}</span><span class="n">${n}</span></button>`;
-  const catItem = (id, label, n, sub) => `<button type="button" class="sb-item ${sub ? 'sub' : ''} ${categoryFilter === id ? 'active' : ''}" data-cf="${id}"><span>${escapeHtml(label)}</span><span class="n">${n}</span></button>`;
-  const noCat = products.filter(p => !p.category).length;
-  el.innerHTML = `
-    <div class="sb-title">${L('Разделы', 'Бөлімдер')}</div>
-    ${item('all', '📦', L('Все товары', 'Барлық тауар'), products.length)}
-    ${item('isNew', '🆕', L('Новинки', 'Жаңалықтар'), cnt('isNew'))}
-    ${item('published', '✅', L('На сайте', 'Сайтта'), cnt('published'))}
-    ${item('draft', '✏️', L('Черновики', 'Жоба'), cnt('draft'))}
-    <div class="sb-title">${L('Нужно поправить', 'Түзету керек')}</div>
-    ${item('noPhoto', '📷', L('Без фото', 'Фотосыз'), cnt('noPhoto'), cnt('noPhoto') ? 'warn' : '')}
-    ${item('noPrice', '💰', L('Без цены', 'Бағасыз'), cnt('noPrice'), cnt('noPrice') ? 'warn' : '')}
-    ${item('noStock', '📉', L('Нет в наличии', 'Қалдық жоқ'), cnt('noStock'))}
-    <div class="sb-title">${L('Категории', 'Санаттар')}</div>
-    ${catItem('all', L('Все категории', 'Барлық санаттар'), products.length, false)}
-    ${mainCategories().map(c => catItem(c.documentId, c.name, countInCategory(c.documentId), false) + subcategoriesOf(c.documentId).map(sc => catItem(sc.documentId, sc.name, countInCategory(sc.documentId), true)).join('')).join('')}
-    ${catItem('none', L('Без категории', 'Санатсыз'), noCat, false)}
-  `;
-  el.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => {
-    statFilter = b.dataset.sf;
-    if (statFilter === 'all') categoryFilter = 'all';
-    selected.clear();
-    document.body.classList.remove('sb-open');
-    renderTable();
-  }));
-  el.querySelectorAll('[data-cf]').forEach(b => b.addEventListener('click', () => {
-    categoryFilter = b.dataset.cf;
-    selected.clear();
-    document.body.classList.remove('sb-open');
-    renderTable();
-  }));
-}
-
-async function togglePublish(documentId, value) {
-  try {
-    const res = await fetch(API_BASE + '/api/manage/products/' + documentId, { method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ published: value }) });
-    if (!res.ok) throw new Error('fail');
-    const p = products.find(x => x.documentId === documentId);
-    if (p) p.published = value;
-    showToast(t('toastSaved'));
-    renderTable();
-  } catch (e) {
-    console.error(e);
-    showToast(L('Ошибка, попробуйте ещё раз', 'Қате, қайталап көріңіз'));
-  }
 }
 
 function setFilter(key) {
@@ -924,7 +866,6 @@ function renderBulkBar() {
 }
 
 function renderTable() {
-  renderSidebar();
   const wrap = document.getElementById('tableWrap');
   const list = filteredProducts();
   const countLabelEl = document.getElementById('countLabel');
@@ -949,36 +890,37 @@ function renderTable() {
   }
 
   const allChecked = list.length > 0 && list.every(p => selected.has(p.documentId));
-  const card = (p) => {
-    const url = photoUrl(p);
-    const st = p.stock ?? 0;
-    const price = p.wholesalePrice ?? 0;
-    const box = Number(p.minOrderQty) || 1;
-    return `
-    <div class="pcard ${selected.has(p.documentId) ? 'sel' : ''}">
-      <input type="checkbox" class="pchk" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} />
-      <div class="pimg" data-edit="${p.documentId}">
-        ${url ? `<img src="${escapeHtml(url)}" loading="lazy" alt="" />` : `<div class="nophoto"><b>📷</b><span>${L('нет фото', 'фото жоқ')}</span></div>`}
-        <div class="pbadges">${p.isNew ? `<span class="pb new">${L('Новинка', 'Жаңа')}</span>` : ''}<span class="pb ${p.published ? 'on' : 'off'}">${p.published ? L('На сайте', 'Сайтта') : L('Черновик', 'Жоба')}</span></div>
-      </div>
-      <div class="pbody">
-        <div class="psku">${escapeHtml(p.sku || p.name || '')}</div>
-        <div class="pname">${escapeHtml(p.name || '')}</div>
-        ${price > 0 ? `<div class="pprice">${money(price)}</div>` : `<div class="pprice none">${L('нет цены', 'бағасы жоқ')}</div>`}
-        <div class="pmeta"><span class="stk ${st <= 0 ? 'zero' : st < 100 ? 'low' : ''}">${st} ${L('шт.', 'дана')}</span><span>📦 ${box} ${L('в короб.', 'қорапта')}</span></div>
-        ${p.category ? `<div class="pcat">📁 ${escapeHtml(productCategoryLabel(p))}</div>` : ''}
-        <div class="pact">
-          <button data-edit="${p.documentId}">✏️ ${t('edit')}</button>
-          <button class="${p.published ? '' : 'pub'}" data-pub="${p.documentId}" data-val="${p.published ? 0 : 1}">${p.published ? L('Скрыть', 'Жасыру') : L('На сайт', 'Сайтқа')}</button>
-          <button class="del" data-del="${p.documentId}" title="${t('del')}">🗑</button>
-        </div>
-      </div>
-    </div>`;
-  };
 
   wrap.innerHTML = `
-    <label class="select-all" style="display:flex;gap:8px;align-items:center;margin:2px 2px 10px;font-size:13.5px;color:var(--muted);cursor:pointer;"><input type="checkbox" id="selectAllCheckbox" ${allChecked ? 'checked' : ''} /><span>${t('selectAll')} (${list.length})</span></label>
-    <div class="pgrid ${viewMode === 'list' ? 'list' : ''}">${list.map(card).join('')}</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="row-check"><label class="select-all"><input type="checkbox" id="selectAllCheckbox" ${allChecked ? 'checked' : ''} /><span>${t('selectAll')}</span></label></th>
+          <th class="c-photo"></th>
+          <th>${t('thName')}</th>
+          <th>${t('thPrice')}</th>
+          <th>${t('thStock')}</th>
+          <th>${t('thStatus')}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(p => `
+          <tr>
+            <td class="row-check"><input type="checkbox" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} /></td>
+            <td class="c-photo">${photoUrl(p) ? `<img class="thumb" src="${escapeHtml(photoUrl(p))}" loading="lazy" alt="" />` : `<div class="thumb none">нет фото</div>`}</td>
+            <td class="c-name">${escapeHtml(p.name)}${p.isNew ? ` <span class="badge new">${t('badgeNew')}</span>` : ''}${p.category ? `<div class="cat-line">📁 ${escapeHtml(productCategoryLabel(p))}</div>` : ''}</td>
+            <td class="c-price ${(p.wholesalePrice ?? 0) > 0 ? '' : 'noprice'}">${(p.wholesalePrice ?? 0) > 0 ? money(p.wholesalePrice) : 'нет цены'}</td>
+            <td class="c-stock ${(p.stock ?? 0) <= 0 ? 'zero' : (p.stock ?? 0) < 100 ? 'low' : ''}">${p.stock ?? 0} шт.</td>
+            <td class="c-status"><span class="badge ${p.published ? 'on' : 'off'}">${p.published ? t('published') : t('draft')}</span></td>
+            <td class="row-actions c-actions">
+              <button data-edit="${p.documentId}">${t('edit')}</button>
+              <button class="del" data-del="${p.documentId}">${t('del')}</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
   `;
 
   wrap.querySelectorAll('[data-edit]').forEach(btn => {
@@ -987,14 +929,10 @@ function renderTable() {
   wrap.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => deleteProduct(btn.dataset.del));
   });
-  wrap.querySelectorAll('[data-pub]').forEach(btn => {
-    btn.addEventListener('click', () => togglePublish(btn.dataset.pub, btn.dataset.val === '1'));
-  });
   wrap.querySelectorAll('[data-check]').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const id = cb.dataset.check;
       if (e.target.checked) selected.add(id); else selected.delete(id);
-      cb.closest('.pcard').classList.toggle('sel', e.target.checked);
       renderBulkBar();
       const selectAll = document.getElementById('selectAllCheckbox');
       if (selectAll) selectAll.checked = list.every(p => selected.has(p.documentId));
@@ -1468,27 +1406,15 @@ async function deleteProduct(documentId) {
 
 // ---------- Wire up ----------
 
-function setupToolbar() {
+function setupSearch() {
   const input = document.getElementById('searchInput');
-  input.placeholder = L('Поиск по названию или артикулу…', 'Атауы немесе артикулы бойынша іздеу…');
+  input.placeholder = lang === 'kz' ? 'Атауы немесе артикулы бойынша іздеу…' : 'Поиск по названию или артикулу…';
   let tm;
   input.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(() => { searchText = input.value; renderTable(); }, 200); });
-  const paint = () => document.querySelectorAll('#viewToggle button').forEach(b => b.classList.toggle('active', b.dataset.view === viewMode));
-  document.querySelectorAll('#viewToggle button').forEach(b => b.addEventListener('click', () => {
-    viewMode = b.dataset.view;
-    try { localStorage.setItem('sklad_manage_view', viewMode); } catch { /* ignore */ }
-    paint();
-    renderTable();
-  }));
-  paint();
-  const tg = document.getElementById('sidebarToggle');
-  tg.textContent = '☰ ' + L('Разделы', 'Бөлімдер');
-  tg.addEventListener('click', () => document.body.classList.add('sb-open'));
-  document.getElementById('sbBackdrop').addEventListener('click', () => document.body.classList.remove('sb-open'));
 }
 
 function init() {
-  setupToolbar();
+  setupSearch();
   applyStaticText();
   setupLangSwitch();
 
