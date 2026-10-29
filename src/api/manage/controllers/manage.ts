@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -53,6 +54,28 @@ async function getStockMap(token: string): Promise<Record<string, StockMapEntry>
     }
     offset += limit;
     if (offset >= (json.meta?.size || 0)) break;
+  }
+  // The "Контейнер" warehouse is a reserve that is not sold to clients: the
+  // stock shown on the site is the sum over all the other warehouses.
+  // (Cost price stays from the report above.) If the per-warehouse report
+  // fails, the total from the first report is kept.
+  try {
+    let off2 = 0;
+    while (true) {
+      const bs: any = await msFetch(`/report/stock/bystore?limit=1000&offset=${off2}`, token);
+      for (const row of bs.rows || []) {
+        const id = (row.meta?.href || '').split('/').pop()?.split('?')[0];
+        if (!id || !map[id]) continue;
+        const stores: any[] = row.stockByStore || [];
+        map[id].stock = stores
+          .filter((st) => String(st.name || '').trim().toLowerCase() !== 'контейнер')
+          .reduce((n, st) => n + (Number(st.stock) || 0), 0);
+      }
+      off2 += 1000;
+      if (off2 >= (bs.meta?.size || 0)) break;
+    }
+  } catch (e) {
+    strapi.log.warn(`per-warehouse stock failed, using total: ${e}`);
   }
   stockMapByIdCache = map;
   stockMapCachedAt = Date.now();
@@ -283,14 +306,25 @@ async function lookupMoyskladPrice(sku: string): Promise<{ costPrice: number; wh
   }
 }
 
-async function findOrCreateCategoryId(name: string, cache: Map<string, string>): Promise<string | null> {
+// Finds a category by name (case-insensitive) or creates it. parentId:
+// undefined — a category with that name at any level (file import);
+// null — a main category; a documentId — a subcategory inside that one.
+async function findOrCreateCategoryId(
+  name: string,
+  cache: Map<string, string>,
+  parentId?: string | null
+): Promise<string | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
-  const key = trimmed.toLowerCase();
+  const key = `${parentId === undefined ? '*' : parentId ?? ''}/${trimmed.toLowerCase()}`;
   if (cache.has(key)) return cache.get(key)!;
 
+  const filters: any = { name: { $eqi: trimmed } };
+  if (parentId === null) filters.parent = { id: { $null: true } };
+  else if (parentId) filters.parent = { documentId: parentId };
+
   const existing: any = await strapi.documents('api::category.category').findMany({
-    filters: { name: { $eqi: trimmed } },
+    filters,
     pagination: { pageSize: 1 },
   } as any);
   if (existing?.length) {
@@ -299,10 +333,21 @@ async function findOrCreateCategoryId(name: string, cache: Map<string, string>):
   }
 
   const created: any = await strapi.documents('api::category.category').create({
-    data: { name: trimmed },
+    data: parentId ? { name: trimmed, parent: parentId } : { name: trimmed },
   } as any);
   cache.set(key, created.documentId);
   return created.documentId;
+}
+
+// MoySklad folder path -> category: "Фены/Philips" becomes subcategory
+// "Philips" inside main category "Фены". The catalog shows two levels, so a
+// deeper path keeps its first and its last folder.
+async function categoryIdForFolderPath(pathName: string, cache: Map<string, string>): Promise<string | null> {
+  const folders = pathName.split('/').map((f) => f.trim()).filter(Boolean);
+  if (!folders.length) return null;
+  const mainId = await findOrCreateCategoryId(folders[0], cache, null);
+  if (folders.length === 1 || !mainId) return mainId;
+  return findOrCreateCategoryId(folders[folders.length - 1], cache, mainId);
 }
 
 // Downloads one MoySklad product image and uploads it into our own Strapi
@@ -378,6 +423,51 @@ function getSecret(): string {
   return process.env.MANAGE_JWT_SECRET || process.env.ADMIN_JWT_SECRET || 'change-me';
 }
 
+// Brute-force protection for the cabinet login. Without it the password can
+// be guessed by simply trying every value — a short one in minutes. Wrong
+// attempts are counted per client address and across all addresses
+// together; once a limit is hit, login is closed (even for the right
+// password, otherwise guessing would just continue) until the window ends.
+// Tokens already issued keep working, so a lockout never logs anyone out.
+// Kept in memory: a server restart clears the counters, which is fine.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILS_PER_IP = 5;
+const LOGIN_MAX_FAILS_TOTAL = 20;
+
+type FailCounter = { count: number; resetAt: number };
+const loginFailsByIp = new Map<string, FailCounter>();
+let loginFailsTotal: FailCounter = { count: 0, resetAt: 0 };
+
+function liveCounter(counter: FailCounter | undefined, now: number): FailCounter {
+  return counter && counter.resetAt > now ? counter : { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+}
+
+// Milliseconds until login opens again for this address, or 0 if it's open.
+function loginLockedFor(ip: string, now: number): number {
+  const byIp = loginFailsByIp.get(ip);
+  if (byIp && byIp.resetAt > now && byIp.count >= LOGIN_MAX_FAILS_PER_IP) return byIp.resetAt - now;
+  if (loginFailsTotal.resetAt > now && loginFailsTotal.count >= LOGIN_MAX_FAILS_TOTAL) return loginFailsTotal.resetAt - now;
+  return 0;
+}
+
+function recordLoginFail(ip: string, now: number) {
+  for (const [key, counter] of loginFailsByIp) {
+    if (counter.resetAt <= now) loginFailsByIp.delete(key);
+  }
+  const byIp = liveCounter(loginFailsByIp.get(ip), now);
+  byIp.count += 1;
+  loginFailsByIp.set(ip, byIp);
+  loginFailsTotal = liveCounter(loginFailsTotal, now);
+  loginFailsTotal.count += 1;
+}
+
+// Compares hashes rather than the raw strings so the check takes the same
+// time whatever the guess is (timingSafeEqual needs equal-length inputs).
+function passwordMatches(given: string, expected: string): boolean {
+  const hash = (s: string) => crypto.createHash('sha256').update(s).digest();
+  return crypto.timingSafeEqual(hash(given), hash(expected));
+}
+
 function requireAuth(ctx: any): boolean {
   const header = ctx.request.header.authorization as string | undefined;
   if (!header || !header.startsWith('Bearer ')) {
@@ -403,10 +493,21 @@ export default {
       ctx.badRequest('Пароль кабинета не настроен на сервере. Задайте MANAGE_PASSWORD в файле .env и перезапустите сервер.');
       return;
     }
-    if (!password || password !== expected) {
+    const ip: string = ctx.request.ip || 'unknown';
+    const now = Date.now();
+    const lockedMs = loginLockedFor(ip, now);
+    if (lockedMs > 0) {
+      const minutes = Math.ceil(lockedMs / 60000);
+      ctx.tooManyRequests(`Слишком много неверных попыток входа. Попробуйте через ${minutes} мин.`);
+      return;
+    }
+
+    if (typeof password !== 'string' || !password || !passwordMatches(password, expected)) {
+      recordLoginFail(ip, now);
       ctx.unauthorized('Неверный пароль');
       return;
     }
+    loginFailsByIp.delete(ip);
 
     const token = jwt.sign({ role: 'manager' }, getSecret(), { expiresIn: '30d' });
     ctx.body = { token };
@@ -460,16 +561,63 @@ export default {
     if (!requireAuth(ctx)) return;
     const categories = await strapi.documents('api::category.category').findMany({
       sort: 'name:asc',
-      pagination: { pageSize: 200 },
+      populate: { parent: { fields: ['name'] } },
+      pagination: { pageSize: 500 },
     } as any);
     ctx.body = { data: categories };
   },
 
+  // Body: { name, parent? } — parent is the documentId of a main category.
+  // Only two levels: the catalog shows main categories and one row of
+  // subcategories under the chosen one.
   async createCategory(ctx: any) {
     if (!requireAuth(ctx)) return;
-    const data = ctx.request.body;
-    const created = await strapi.documents('api::category.category').create({ data } as any);
+    const name = String(ctx.request.body?.name ?? '').trim();
+    const parent = ctx.request.body?.parent || null;
+    if (!name) {
+      ctx.badRequest('Укажите название категории');
+      return;
+    }
+    if (parent) {
+      const parentDoc: any = await strapi.documents('api::category.category').findOne({
+        documentId: parent,
+        populate: ['parent'],
+      } as any);
+      if (!parentDoc) {
+        ctx.badRequest('Основная категория не найдена');
+        return;
+      }
+      if (parentDoc.parent) {
+        ctx.badRequest('Подкатегорию можно добавить только в основную категорию');
+        return;
+      }
+    }
+    const created = await strapi.documents('api::category.category').create({
+      data: parent ? { name, parent } : { name },
+      populate: { parent: { fields: ['name'] } },
+    } as any);
     ctx.body = { data: created };
+  },
+
+  // Rename only — products and subcategories stay where they are.
+  async updateCategory(ctx: any) {
+    if (!requireAuth(ctx)) return;
+    const { id } = ctx.params;
+    const name = String(ctx.request.body?.name ?? '').trim();
+    if (!name) {
+      ctx.badRequest('Укажите название категории');
+      return;
+    }
+    const updated = await strapi.documents('api::category.category').update({
+      documentId: id,
+      data: { name },
+      populate: { parent: { fields: ['name'] } },
+    } as any);
+    if (!updated) {
+      ctx.notFound('Категория не найдена');
+      return;
+    }
+    ctx.body = { data: updated };
   },
 
   async deleteCategory(ctx: any) {
@@ -603,9 +751,7 @@ export default {
         return;
       }
 
-      const categoryId = row.pathName
-        ? await findOrCreateCategoryId(row.pathName.split('/').filter(Boolean).pop() || '', categoryCache)
-        : null;
+      const categoryId = row.pathName ? await categoryIdForFolderPath(row.pathName, categoryCache) : null;
 
       // Wholesale price comes from our own markup formula on the real cost —
       // MoySklad's own "sale price" field is a separate, often-unset price
