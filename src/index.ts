@@ -32,6 +32,8 @@ const RUSSIAN_LABELS: Record<string, Record<string, string>> = {
     name: 'Название',
     slug: 'Ссылка (slug)',
     products: 'Товары',
+    parent: 'Основная категория',
+    children: 'Подкатегории',
   },
 };
 
