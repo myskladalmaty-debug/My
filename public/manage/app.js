@@ -35,7 +35,8 @@ const translations = {
     l_name: 'Название *',
     l_sku: 'Артикул',
     l_category: 'Категория',
-    categoryPlaceholder: 'например: Мыло',
+    categoryHint: 'Нет нужной категории — добавьте её в «📁 Категории» вверху.',
+    noCategory: '— без категории —',
     l_description: 'Описание',
     l_price: 'Опт. цена',
     l_minqty: 'Мин. партия, шт',
@@ -99,6 +100,35 @@ const translations = {
     importingFile: 'Загружаю…',
     importFileDone: (created, total, withPhoto) => `Готово: добавлено ${created} из ${total} строк (с фото: ${withPhoto}). Товары — черновики, проверьте и опубликуйте вручную.`,
     importFileError: 'Не удалось загрузить файл',
+    selectAll: 'Выбрать все',
+    categoriesBtn: '📁 Категории',
+    categoriesTitle: 'Категории и подкатегории',
+    categoriesHint: 'Когда клиент выбирает основную категорию, её подкатегории появляются в каталоге вторым рядом.',
+    l_newCategory: 'Новая категория',
+    newCategoryPlaceholder: 'например: Фены',
+    l_newCategoryParent: 'Где она будет',
+    parentNone: '— основная категория —',
+    parentInside: (name) => `подкатегория в «${name}»`,
+    addCategory: '+ Добавить',
+    categoriesEmpty: 'Категорий пока нет — добавьте первую выше.',
+    renameCategory: 'Переименовать',
+    deleteCategory: 'Удалить',
+    renamePrompt: 'Новое название категории:',
+    confirmDeleteCategory: (name) => `Удалить категорию «${name}»? Товары останутся, но без категории.`,
+    confirmDeleteMain: (name, n) => `Удалить категорию «${name}»? Товары останутся, но без категории, а её подкатегории (${n}) станут основными.`,
+    categoryExists: 'Такая категория уже есть',
+    categoryNameRequired: 'Введите название категории',
+    toastCategorySaved: 'Категория сохранена',
+    toastCategoryDeleted: 'Категория удалена',
+    toastCategoryError: 'Ошибка: не удалось сохранить категорию',
+    productsShort: (n) => `${n} шт.`,
+    close: 'Закрыть',
+    filterAllCategories: 'Все категории',
+    filterNoCategory: (n) => `Без категории (${n})`,
+    bulkCategory: '📁 В категорию',
+    moveTitle: (n) => `Переместить в категорию (${n} шт.)`,
+    moveSave: 'Переместить',
+    moveDone: 'Готово — товары перемещены',
   },
   kz: {
     loginSubtitle: 'Тауарларды басқаруға арналған қарапайым кабинет',
@@ -128,7 +158,8 @@ const translations = {
     l_name: 'Атауы *',
     l_sku: 'Артикул',
     l_category: 'Санат',
-    categoryPlaceholder: 'мысалы: Сабын',
+    categoryHint: 'Қажетті санат жоқ па — оны жоғарыдағы «📁 Санаттар» арқылы қосыңыз.',
+    noCategory: '— санатсыз —',
     l_description: 'Сипаттама',
     l_price: 'Көтерме бағасы',
     l_minqty: 'Ең аз партия, дана',
@@ -192,6 +223,35 @@ const translations = {
     importingFile: 'Жүктелуде…',
     importFileDone: (created, total, withPhoto) => `Дайын: ${total} жолдан ${created} қосылды (фотомен: ${withPhoto}). Тауарлар — жоба, тексеріп, қолмен жариялаңыз.`,
     importFileError: 'Файлды жүктеу мүмкін болмады',
+    selectAll: 'Барлығын таңдау',
+    categoriesBtn: '📁 Санаттар',
+    categoriesTitle: 'Санаттар және ішкі санаттар',
+    categoriesHint: 'Клиент негізгі санатты таңдағанда, оның ішкі санаттары каталогта екінші қатарда шығады.',
+    l_newCategory: 'Жаңа санат',
+    newCategoryPlaceholder: 'мысалы: Фендер',
+    l_newCategoryParent: 'Қай жерде болады',
+    parentNone: '— негізгі санат —',
+    parentInside: (name) => `«${name}» ішіндегі ішкі санат`,
+    addCategory: '+ Қосу',
+    categoriesEmpty: 'Санаттар әлі жоқ — біріншісін жоғарыда қосыңыз.',
+    renameCategory: 'Атын өзгерту',
+    deleteCategory: 'Жою',
+    renamePrompt: 'Санаттың жаңа атауы:',
+    confirmDeleteCategory: (name) => `«${name}» санатын жою керек пе? Тауарлар қалады, бірақ санатсыз.`,
+    confirmDeleteMain: (name, n) => `«${name}» санатын жою керек пе? Тауарлар санатсыз қалады, ал оның ішкі санаттары (${n}) негізгі болады.`,
+    categoryExists: 'Мұндай санат бар',
+    categoryNameRequired: 'Санат атауын енгізіңіз',
+    toastCategorySaved: 'Санат сақталды',
+    toastCategoryDeleted: 'Санат жойылды',
+    toastCategoryError: 'Қате: санатты сақтау мүмкін болмады',
+    productsShort: (n) => `${n} дана`,
+    close: 'Жабу',
+    filterAllCategories: 'Барлық санаттар',
+    filterNoCategory: (n) => `Санатсыз (${n})`,
+    bulkCategory: '📁 Санатқа',
+    moveTitle: (n) => `Санатқа ауыстыру (${n} дана)`,
+    moveSave: 'Ауыстыру',
+    moveDone: 'Дайын — тауарлар ауыстырылды',
   },
 };
 
@@ -232,6 +292,17 @@ function money(v) {
   return Number(v).toLocaleString('ru-RU') + ' ₸';
 }
 
+// Product names come from MoySklad, supplier files and the Telegram bot —
+// pass them through this before putting them into HTML, so they show as
+// plain text and can never turn into markup or scripts in the cabinet.
+function escapeHtml(s) {
+  return (s ?? '').toString()
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ---------- Language ----------
 
 function applyStaticText() {
@@ -249,7 +320,17 @@ function applyStaticText() {
   document.getElementById('l_name').textContent = t('l_name');
   document.getElementById('l_sku').textContent = t('l_sku');
   document.getElementById('l_category').textContent = t('l_category');
-  document.getElementById('f_category').placeholder = t('categoryPlaceholder');
+  document.getElementById('categoryHint').textContent = t('categoryHint');
+  document.getElementById('categoriesBtn').textContent = t('categoriesBtn');
+  document.getElementById('categoriesTitle').textContent = t('categoriesTitle');
+  document.getElementById('categoriesHint').textContent = t('categoriesHint');
+  document.getElementById('l_newCategory').textContent = t('l_newCategory');
+  document.getElementById('f_newCategoryName').placeholder = t('newCategoryPlaceholder');
+  document.getElementById('l_newCategoryParent').textContent = t('l_newCategoryParent');
+  document.getElementById('addCategoryBtn').textContent = t('addCategory');
+  document.getElementById('categoriesCloseBtn').textContent = t('close');
+  document.getElementById('moveCancelBtn').textContent = t('cancel');
+  document.getElementById('moveSaveBtn').textContent = t('moveSave');
   document.getElementById('l_price').textContent = t('l_price');
   document.getElementById('l_minqty').textContent = t('l_minqty');
   document.getElementById('l_stock').textContent = t('l_stock');
@@ -276,7 +357,9 @@ function setLang(newLang) {
   renderStats();
   renderFolderTabs();
   renderChips();
+  renderCategoryFilter();
   renderTable();
+  if (!document.getElementById('categoriesOverlay').classList.contains('hidden')) renderCategoriesModal();
 }
 
 function setupLangSwitch() {
@@ -290,6 +373,7 @@ function setupLangSwitch() {
 function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appScreen').classList.remove('hidden');
+  loadCategories();
   loadProducts();
 }
 
@@ -349,6 +433,7 @@ async function loadProducts() {
     renderStats();
     renderFolderTabs();
     renderChips();
+    renderCategoryFilter();
     renderTable();
   } catch (e) {
     wrap.innerHTML = `<div class="empty">${t('loadErrorList')}</div>`;
@@ -375,15 +460,17 @@ const FILTERS = {
 };
 
 function filteredProducts() {
-  return products.filter(FILTERS[statFilter] || FILTERS.all);
+  return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter);
 }
 
 function setFilter(key) {
   statFilter = statFilter === key ? 'all' : key;
+  if (key === 'all') categoryFilter = 'all';
   selected.clear();
   renderStats();
   renderFolderTabs();
   renderChips();
+  renderCategoryFilter();
   renderTable();
 }
 
@@ -468,6 +555,288 @@ function renderChips() {
   });
 }
 
+// ---------- Categories ----------
+// Two levels: main categories and subcategories inside them. The catalog
+// shows the main ones as the first row and the chosen one's subcategories
+// as a second row.
+
+let categories = []; // every category, each with parent: { documentId, name } or null
+let categoryFilter = 'all'; // 'all', 'none' or a category documentId
+
+async function loadCategories() {
+  try {
+    const res = await fetch(API_BASE + '/api/manage/categories', { headers: authHeaders() });
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+    const json = await res.json();
+    categories = (json.data || []).map(normalize);
+  } catch (e) {
+    console.error(e);
+  }
+  renderCategoryFilter();
+  renderTable();
+  if (!document.getElementById('categoriesOverlay').classList.contains('hidden')) renderCategoriesModal();
+}
+
+const byName = (a, b) => a.name.localeCompare(b.name, 'ru');
+
+function mainCategories() {
+  return categories.filter(c => !c.parent).sort(byName);
+}
+
+function subcategoriesOf(documentId) {
+  return categories.filter(c => c.parent?.documentId === documentId).sort(byName);
+}
+
+function categoryPath(c) {
+  return c.parent ? `${c.parent.name} › ${c.name}` : c.name;
+}
+
+// "Фены › Philips" for a product, or '' when it has no category.
+function productCategoryLabel(p) {
+  if (!p.category) return '';
+  const c = categories.find(x => x.documentId === p.category.documentId);
+  return c ? categoryPath(c) : p.category.name;
+}
+
+// Products directly in this category, plus (for a main one) in its subcategories.
+function countInCategory(documentId) {
+  const ids = new Set([documentId, ...subcategoriesOf(documentId).map(c => c.documentId)]);
+  return products.filter(p => p.category && ids.has(p.category.documentId)).length;
+}
+
+function matchesCategoryFilter(p) {
+  if (categoryFilter === 'all') return true;
+  const id = p.category?.documentId || null;
+  if (categoryFilter === 'none') return !id;
+  return id === categoryFilter || subcategoriesOf(categoryFilter).some(c => c.documentId === id);
+}
+
+// <option>s for every category, main ones followed by their subcategories.
+function categoryOptionsHtml(withCounts) {
+  return mainCategories().map(main => {
+    const count = (c) => (withCounts ? ` (${countInCategory(c.documentId)})` : '');
+    return [
+      `<option value="${escapeHtml(main.documentId)}">${escapeHtml(main.name)}${count(main)}</option>`,
+      ...subcategoriesOf(main.documentId).map(sub =>
+        `<option value="${escapeHtml(sub.documentId)}">${escapeHtml(categoryPath(sub))}${count(sub)}</option>`),
+    ].join('');
+  }).join('');
+}
+
+function renderCategoryFilter() {
+  const el = document.getElementById('categoryFilter');
+  if (categoryFilter !== 'all' && categoryFilter !== 'none' && !categories.some(c => c.documentId === categoryFilter)) {
+    categoryFilter = 'all';
+  }
+  const noneCount = products.filter(p => !p.category).length;
+  el.innerHTML = `
+    <option value="all">${t('filterAllCategories')}</option>
+    <option value="none">${t('filterNoCategory', noneCount)}</option>
+    ${categoryOptionsHtml(true)}
+  `;
+  el.value = categoryFilter;
+  el.classList.toggle('hidden', categories.length === 0 && noneCount === products.length);
+}
+
+function setupCategoryFilter() {
+  document.getElementById('categoryFilter').addEventListener('change', (e) => {
+    categoryFilter = e.target.value;
+    selected.clear();
+    renderTable();
+  });
+}
+
+function renderCategoriesModal() {
+  const parentSelect = document.getElementById('f_newCategoryParent');
+  const chosenParent = parentSelect.value;
+  const mains = mainCategories();
+  parentSelect.innerHTML = `<option value="">${t('parentNone')}</option>` +
+    mains.map(c => `<option value="${escapeHtml(c.documentId)}">${escapeHtml(t('parentInside', c.name))}</option>`).join('');
+  if (mains.some(c => c.documentId === chosenParent)) parentSelect.value = chosenParent;
+
+  const row = (c, kind) => `
+    <div class="category-row ${kind}">
+      <span class="category-name">${escapeHtml(c.name)}</span>
+      <span class="category-count">${t('productsShort', countInCategory(c.documentId))}</span>
+      <button type="button" class="icon-btn" data-rename-category="${escapeHtml(c.documentId)}" title="${t('renameCategory')}" aria-label="${t('renameCategory')}">✏️</button>
+      <button type="button" class="icon-btn" data-delete-category="${escapeHtml(c.documentId)}" title="${t('deleteCategory')}" aria-label="${t('deleteCategory')}">🗑</button>
+    </div>`;
+  document.getElementById('categoryTree').innerHTML = mains.length
+    ? mains.map(main => row(main, 'main') + subcategoriesOf(main.documentId).map(sub => row(sub, 'sub')).join('')).join('')
+    : `<div class="empty">${t('categoriesEmpty')}</div>`;
+}
+
+function openCategoriesModal() {
+  document.getElementById('f_newCategoryName').value = '';
+  document.getElementById('f_newCategoryParent').value = '';
+  renderCategoriesModal();
+  document.getElementById('categoriesOverlay').classList.remove('hidden');
+  loadCategories();
+}
+
+function closeCategoriesModal() {
+  document.getElementById('categoriesOverlay').classList.add('hidden');
+}
+
+async function addCategory() {
+  const nameEl = document.getElementById('f_newCategoryName');
+  const name = nameEl.value.trim();
+  const parent = document.getElementById('f_newCategoryParent').value || null;
+  if (!name) {
+    showToast(t('categoryNameRequired'));
+    nameEl.focus();
+    return;
+  }
+  const sameLevel = parent ? subcategoriesOf(parent) : mainCategories();
+  if (sameLevel.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+    showToast(t('categoryExists'));
+    return;
+  }
+  const btn = document.getElementById('addCategoryBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(API_BASE + '/api/manage/categories', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, parent }),
+    });
+    if (!res.ok) throw new Error('create category failed');
+    nameEl.value = '';
+    showToast(t('toastCategorySaved'));
+    await loadCategories();
+  } catch (e) {
+    console.error(e);
+    showToast(t('toastCategoryError'));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function renameCategory(documentId) {
+  const c = categories.find(x => x.documentId === documentId);
+  if (!c) return;
+  const name = (prompt(t('renamePrompt'), c.name) || '').trim();
+  if (!name || name === c.name) return;
+  try {
+    const res = await fetch(API_BASE + '/api/manage/categories/' + documentId, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('rename category failed');
+    showToast(t('toastCategorySaved'));
+    await loadCategories();
+    loadProducts();
+  } catch (e) {
+    console.error(e);
+    showToast(t('toastCategoryError'));
+  }
+}
+
+async function deleteCategory(documentId) {
+  const c = categories.find(x => x.documentId === documentId);
+  if (!c) return;
+  const subs = subcategoriesOf(documentId).length;
+  if (!confirm(subs ? t('confirmDeleteMain', c.name, subs) : t('confirmDeleteCategory', c.name))) return;
+  try {
+    const res = await fetch(API_BASE + '/api/manage/categories/' + documentId, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error('delete category failed');
+    showToast(t('toastCategoryDeleted'));
+    await loadCategories();
+    loadProducts();
+  } catch (e) {
+    console.error(e);
+    showToast(t('toastCategoryError'));
+  }
+}
+
+function setupCategories() {
+  document.getElementById('categoriesBtn').addEventListener('click', openCategoriesModal);
+  document.getElementById('categoriesCloseBtn').addEventListener('click', closeCategoriesModal);
+  document.getElementById('addCategoryBtn').addEventListener('click', addCategory);
+  document.getElementById('f_newCategoryName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addCategory();
+  });
+  document.getElementById('categoryTree').addEventListener('click', (e) => {
+    const renameBtn = e.target.closest('[data-rename-category]');
+    if (renameBtn) renameCategory(renameBtn.dataset.renameCategory);
+    const deleteBtn = e.target.closest('[data-delete-category]');
+    if (deleteBtn) deleteCategory(deleteBtn.dataset.deleteCategory);
+  });
+  document.getElementById('categoriesOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'categoriesOverlay') closeCategoriesModal();
+  });
+  setupCategoryFilter();
+  setupBulkMove();
+}
+
+// ---------- Move selected products to a category ----------
+
+function openMoveModal() {
+  if (!selected.size) return;
+  document.getElementById('moveTitle').textContent = t('moveTitle', selected.size);
+  const select = document.getElementById('f_moveCategory');
+  select.innerHTML = `<option value="">${t('noCategory')}</option>${categoryOptionsHtml(false)}`;
+  const firstMain = mainCategories()[0];
+  select.value = firstMain ? firstMain.documentId : '';
+  document.getElementById('moveOverlay').classList.remove('hidden');
+}
+
+function closeMoveModal() {
+  document.getElementById('moveOverlay').classList.add('hidden');
+}
+
+async function bulkMoveToCategory() {
+  const ids = [...selected];
+  const category = document.getElementById('f_moveCategory').value || null;
+  const btn = document.getElementById('moveSaveBtn');
+  const originalText = btn.textContent;
+  let done = 0;
+  btn.disabled = true;
+
+  const CONCURRENCY = 5;
+  let index = 0;
+  async function worker() {
+    while (index < ids.length) {
+      const id = ids[index++];
+      try {
+        await fetch(API_BASE + '/api/manage/products/' + id, {
+          method: 'PUT',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category }),
+        });
+      } catch (e) {
+        console.error('bulk move failed for', id, e);
+      }
+      done += 1;
+      btn.textContent = `${originalText} (${done}/${ids.length})`;
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  btn.disabled = false;
+  btn.textContent = originalText;
+  closeMoveModal();
+  selected.clear();
+  showToast(t('moveDone'));
+  loadProducts();
+}
+
+function setupBulkMove() {
+  document.getElementById('bulkCategoryBtn').addEventListener('click', openMoveModal);
+  document.getElementById('moveCancelBtn').addEventListener('click', closeMoveModal);
+  document.getElementById('moveSaveBtn').addEventListener('click', bulkMoveToCategory);
+  document.getElementById('moveOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'moveOverlay') closeMoveModal();
+  });
+}
+
 function renderBulkBar() {
   const bar = document.getElementById('bulkBar');
   if (selected.size === 0) {
@@ -478,6 +847,7 @@ function renderBulkBar() {
   document.getElementById('bulkCount').textContent = t('bulkSelectedCount', selected.size);
   document.getElementById('bulkPublishBtn').textContent = t('bulkPublish');
   document.getElementById('bulkUnpublishBtn').textContent = t('bulkUnpublish');
+  document.getElementById('bulkCategoryBtn').textContent = t('bulkCategory');
   document.getElementById('bulkFindPricesBtn').textContent = t('findPricesBtn');
   document.getElementById('bulkDeleteBtn').textContent = t('bulkDelete');
   document.getElementById('bulkDeselectBtn').textContent = t('bulkDeselect');
@@ -487,7 +857,8 @@ function renderTable() {
   const wrap = document.getElementById('tableWrap');
   const list = filteredProducts();
   const countLabelEl = document.getElementById('countLabel');
-  if (statFilter === 'all') {
+  const unfiltered = statFilter === 'all' && categoryFilter === 'all';
+  if (unfiltered) {
     // Не дублируем "Всего товаров" из карточки статистики выше — здесь
     // текст нужен только когда включён фильтр и список стал короче.
     countLabelEl.textContent = '';
@@ -502,7 +873,7 @@ function renderTable() {
   renderBulkBar();
 
   if (list.length === 0) {
-    wrap.innerHTML = `<div class="empty">${statFilter === 'all' ? t('emptyList') : t('emptyFiltered')}</div>`;
+    wrap.innerHTML = `<div class="empty">${unfiltered ? t('emptyList') : t('emptyFiltered')}</div>`;
     return;
   }
 
@@ -512,7 +883,7 @@ function renderTable() {
     <table>
       <thead>
         <tr>
-          <th class="row-check"><input type="checkbox" id="selectAllCheckbox" ${allChecked ? 'checked' : ''} /></th>
+          <th class="row-check"><label class="select-all"><input type="checkbox" id="selectAllCheckbox" ${allChecked ? 'checked' : ''} /><span>${t('selectAll')}</span></label></th>
           <th>${t('thName')}</th>
           <th>${t('thPrice')}</th>
           <th>${t('thStock')}</th>
@@ -524,11 +895,11 @@ function renderTable() {
         ${list.map(p => `
           <tr>
             <td class="row-check"><input type="checkbox" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} /></td>
-            <td>${p.name}${p.isNew ? ` <span class="badge new">${t('badgeNew')}</span>` : ''}</td>
-            <td>${money(p.wholesalePrice)}</td>
-            <td>${p.stock ?? 0} шт.</td>
-            <td><span class="badge ${p.published ? 'on' : 'off'}">${p.published ? t('published') : t('draft')}</span></td>
-            <td class="row-actions">
+            <td class="c-name">${escapeHtml(p.name)}${p.isNew ? ` <span class="badge new">${t('badgeNew')}</span>` : ''}${p.category ? `<div class="cat-line">📁 ${escapeHtml(productCategoryLabel(p))}</div>` : ''}</td>
+            <td class="c-price">${money(p.wholesalePrice)}</td>
+            <td class="c-stock">${p.stock ?? 0} шт.</td>
+            <td class="c-status"><span class="badge ${p.published ? 'on' : 'off'}">${p.published ? t('published') : t('draft')}</span></td>
+            <td class="row-actions c-actions">
               <button data-edit="${p.documentId}">${t('edit')}</button>
               <button class="del" data-del="${p.documentId}">${t('del')}</button>
             </td>
@@ -670,7 +1041,7 @@ function setupMoreToggle() {
 
 function renderPhotoPreview(urls) {
   const el = document.getElementById('photoPreview');
-  el.innerHTML = urls.map(u => `<img src="${u}" />`).join('');
+  el.innerHTML = urls.map(u => `<img src="${escapeHtml(u)}" />`).join('');
 }
 
 // ---------- Import products from Excel/CSV file ----------
@@ -897,7 +1268,15 @@ function openModal(documentId) {
   document.getElementById('modalTitle').textContent = p ? t('modalTitleEdit') : t('modalTitleNew');
   document.getElementById('f_name').value = p?.name || '';
   document.getElementById('f_sku').value = p?.sku || '';
-  document.getElementById('f_category').value = p?.category?.name || '';
+  const categorySelect = document.getElementById('f_category');
+  categorySelect.innerHTML = `<option value="">${t('noCategory')}</option>${categoryOptionsHtml(false)}`;
+  // Category list not loaded (yet)? Keep the product's own category as an
+  // option, so saving the form never silently drops it.
+  if (p?.category && !categories.some(c => c.documentId === p.category.documentId)) {
+    categorySelect.insertAdjacentHTML('beforeend',
+      `<option value="${escapeHtml(p.category.documentId)}">${escapeHtml(p.category.name)}</option>`);
+  }
+  categorySelect.value = p?.category?.documentId || '';
   document.getElementById('f_description').value = p?.description || '';
   document.getElementById('f_price').value = p?.wholesalePrice ?? 0;
   document.getElementById('f_minqty').value = p?.minOrderQty ?? 1;
@@ -931,25 +1310,6 @@ function closeModal() {
   editingId = null;
 }
 
-async function findOrCreateCategory(name) {
-  if (!name || !name.trim()) return null;
-  const trimmed = name.trim();
-
-  const res = await fetch(API_BASE + '/api/manage/categories', { headers: authHeaders() });
-  const json = await res.json();
-  const categories = (json.data || []).map(normalize);
-  const existing = categories.find(c => c.name.toLowerCase() === trimmed.toLowerCase());
-  if (existing) return existing.documentId;
-
-  const createRes = await fetch(API_BASE + '/api/manage/categories', {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: trimmed }),
-  });
-  const createJson = await createRes.json();
-  return normalize(createJson.data).documentId;
-}
-
 async function uploadPhotos(files) {
   const formData = new FormData();
   files.forEach(file => formData.append('files', file));
@@ -970,7 +1330,7 @@ async function saveProduct(e) {
   saveBtn.textContent = t('saving');
 
   try {
-    const categoryId = await findOrCreateCategory(document.getElementById('f_category').value);
+    const categoryId = document.getElementById('f_category').value || null;
 
     const data = {
       name: document.getElementById('f_name').value.trim(),
@@ -1046,6 +1406,7 @@ function init() {
   document.getElementById('productForm').addEventListener('submit', saveProduct);
   setupPasteAutofill();
   setupPricing();
+  setupCategories();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
   document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(14));
