@@ -221,6 +221,7 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
+    z-index: 30;
   }
   .modal {
     background: var(--card-bg);
@@ -324,6 +325,7 @@
     border-radius: 8px;
     font-size: 14px;
     display: none;
+    z-index: 40;
   }
   .folder-tabs {
     display: flex;
@@ -417,7 +419,130 @@
     margin-left: auto;
   }
   .row-check { width: 18px; }
+  .select-all { display: flex; align-items: center; gap: 8px; }
+  .select-all span { display: none; font-weight: 500; color: var(--muted); }
+  .cat-line { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .category-filter {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    min-width: 220px;
+    margin-bottom: 12px;
+  }
+
+  /* --- Categories window --- */
+  .category-add {
+    display: flex;
+    flex-direction: column;
+    background: #fafaf8;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+    margin-bottom: 14px;
+  }
+  .category-add .field { margin-bottom: 10px; }
+  .category-tree { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .category-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .category-row:last-child { border-bottom: none; }
+  .category-row.sub { padding-left: 28px; background: #fafaf8; }
+  .category-row.sub .category-name::before { content: '› '; color: var(--muted); }
+  .category-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .category-row.main .category-name { font-weight: 600; }
+  .category-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .icon-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 15px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { background: #f0f0ee; }
+  .category-tree .empty { padding: 20px; font-size: 14px; }
   .hidden { display: none !important; }
+
+  /* --- Phone screens --- */
+  @media (max-width: 640px) {
+    header { padding: 10px 12px; gap: 8px; }
+    header h1 { font-size: 18px; flex: 1; }
+    header button { padding: 8px 12px; }
+    .header-right { gap: 6px; }
+    .header-main-actions { order: 2; flex-basis: 100%; gap: 6px; }
+    .header-main-actions .add-btn { flex: 1 1 auto; padding: 10px 8px; }
+    .container { padding: 12px; }
+
+    .login-box { margin: 32px 16px; padding: 24px 18px; }
+    .login-box input, .field input, .field textarea, .field select, .category-filter { font-size: 16px; }
+
+    .stats { gap: 6px; }
+    .stat-card { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }
+    .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px 12px; padding: 0 12px 2px; scrollbar-width: none; }
+    .chips::-webkit-scrollbar { display: none; }
+    .chips button { flex-shrink: 0; padding: 7px 12px; }
+    .category-filter { width: 100%; min-width: 0; }
+    .secondary-actions .add-btn.small { flex: 1 1 auto; padding: 9px 10px; }
+
+    /* product table turns into one card per product */
+    table, thead, tbody, tr, td { display: block; }
+    thead tr { display: block; padding: 10px 12px; background: #fafaf8; border-bottom: 1px solid var(--border); }
+    thead th { display: none; padding: 0; border: none; background: none; }
+    thead th.row-check { display: block; width: auto; }
+    .select-all span { display: inline; }
+    tbody tr {
+      display: grid;
+      grid-template-columns: 26px 1fr auto;
+      grid-template-areas:
+        "check name name"
+        ".     price stock"
+        ".     status actions";
+      gap: 6px 8px;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 0; border: none; }
+    td.row-check { grid-area: check; width: auto; align-self: start; padding-top: 2px; }
+    td.c-name { grid-area: name; font-weight: 600; overflow-wrap: anywhere; }
+    td.c-name .cat-line { font-weight: 400; }
+    td.c-price { grid-area: price; font-weight: 600; }
+    td.c-stock { grid-area: stock; text-align: right; color: var(--muted); }
+    td.c-status { grid-area: status; }
+    td.c-actions { grid-area: actions; text-align: right; white-space: nowrap; }
+    .row-actions button { padding: 6px 4px; margin: 0 0 0 8px; font-size: 14px; }
+    input[type="checkbox"] { width: 18px; height: 18px; }
+
+    .bulk-bar {
+      position: sticky;
+      bottom: 8px;
+      z-index: 5;
+      flex-wrap: wrap;
+      gap: 6px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+    .bulk-bar #bulkCount { flex-basis: 100%; font-weight: 600; }
+    .bulk-btn { padding: 9px 12px; }
+    .bulk-btn.link { margin-left: 0; }
+
+    .overlay { padding: 8px; align-items: flex-end; }
+    .modal { padding: 18px 16px; max-height: 92vh; max-height: 92dvh; border-radius: 14px; }
+    .two-col { grid-template-columns: 1fr; gap: 0; }
+    .modal-actions button { padding: 12px; }
+    .toast { max-width: calc(100vw - 32px); text-align: center; bottom: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -440,6 +565,7 @@
     <div class="header-main-actions">
       <button class="add-btn" id="syncNewOnlyBtn"></button>
       <button class="add-btn" id="addBtn"></button>
+      <button class="add-btn outline" id="categoriesBtn"></button>
     </div>
     <div class="header-right">
       <button id="pricingBtn">⚙️</button>
@@ -455,6 +581,7 @@
     <div class="stats" id="stats"></div>
     <div class="folder-tabs" id="folderTabs"></div>
     <div class="chips" id="chips"></div>
+    <select id="categoryFilter" class="category-filter"></select>
 
     <div id="countLabel" class="count-label"></div>
 
@@ -469,6 +596,7 @@
       <span id="bulkCount"></span>
       <button id="bulkPublishBtn" class="bulk-btn publish"></button>
       <button id="bulkUnpublishBtn" class="bulk-btn"></button>
+      <button id="bulkCategoryBtn" class="bulk-btn"></button>
       <button id="bulkFindPricesBtn" class="bulk-btn"></button>
       <button id="bulkDeleteBtn" class="bulk-btn del"></button>
       <button id="bulkDeselectBtn" class="bulk-btn link"></button>
@@ -501,14 +629,19 @@
       <button type="button" class="more-toggle" id="moreToggle"></button>
 
       <div id="moreFields" class="hidden">
+        <div class="field">
+          <label id="l_category" for="f_category"></label>
+          <select id="f_category"></select>
+          <div class="hint" id="categoryHint" style="margin:4px 0 0;"></div>
+        </div>
         <div class="two-col">
           <div class="field">
             <label id="l_sku"></label>
             <input type="text" id="f_sku" />
           </div>
           <div class="field">
-            <label id="l_category"></label>
-            <input type="text" id="f_category" />
+            <label id="l_stock"></label>
+            <input type="number" id="f_stock" value="0" />
           </div>
         </div>
         <div class="two-col">
@@ -520,10 +653,6 @@
             <label id="l_minqty"></label>
             <input type="number" id="f_minqty" value="1" />
           </div>
-        </div>
-        <div class="field">
-          <label id="l_stock"></label>
-          <input type="number" id="f_stock" value="0" />
         </div>
       </div>
 
@@ -573,6 +702,44 @@
     </div>
     <div class="modal-actions">
       <button type="button" class="save" id="pricingApplyBtn" style="width:100%; background:#1a7f37;"></button>
+    </div>
+  </div>
+</div>
+
+<div id="categoriesOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3 id="categoriesTitle"></h3>
+    <p class="hint" id="categoriesHint" style="margin-top:0;"></p>
+
+    <div class="category-add">
+      <div class="field">
+        <label id="l_newCategory" for="f_newCategoryName"></label>
+        <input type="text" id="f_newCategoryName" maxlength="60" />
+      </div>
+      <div class="field">
+        <label id="l_newCategoryParent" for="f_newCategoryParent"></label>
+        <select id="f_newCategoryParent"></select>
+      </div>
+      <button type="button" class="add-btn" id="addCategoryBtn"></button>
+    </div>
+
+    <div class="category-tree" id="categoryTree"></div>
+
+    <div class="modal-actions">
+      <button type="button" id="categoriesCloseBtn"></button>
+    </div>
+  </div>
+</div>
+
+<div id="moveOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3 id="moveTitle"></h3>
+    <div class="field">
+      <select id="f_moveCategory" aria-label="Категория"></select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="moveCancelBtn"></button>
+      <button type="button" class="save" id="moveSaveBtn"></button>
     </div>
   </div>
 </div>
