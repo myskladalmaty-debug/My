@@ -225,7 +225,7 @@ function money(v) {
 function imageUrl(product) {
   const img = product.images && product.images[0];
   if (!img) return '';
-  const url = (img.formats && img.formats.small && img.formats.small.url) || img.url;
+  const url = (img.formats && ((img.formats.medium && img.formats.medium.url) || (img.formats.small && img.formats.small.url))) || img.url;
   return url.startsWith('http') ? url : API_BASE + url;
 }
 
