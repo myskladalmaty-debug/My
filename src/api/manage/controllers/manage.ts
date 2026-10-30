@@ -69,7 +69,7 @@ async function getStockMap(token: string): Promise<Record<string, StockMapEntry>
         const stores: any[] = row.stockByStore || [];
         map[id].stock = stores
           .filter((st) => String(st.name || '').trim().toLowerCase() !== 'контейнер')
-          .reduce((n, st) => n + (Number(st.stock) || 0), 0);
+          .reduce((n, st) => n + Math.max(0, Number(st.stock) || 0), 0); // a negative balance in one warehouse is an accounting gap, not goods
       }
       off2 += 1000;
       if (off2 >= (bs.meta?.size || 0)) break;
@@ -104,6 +104,59 @@ async function getStockReportRows(token: string): Promise<any[]> {
   }
   stockReportCache = rows;
   stockReportCachedAt = Date.now();
+  return rows;
+}
+
+// Products that "arrived" in the last N days. MoySklad does not touch a
+// product card when goods are received or moved to another warehouse, so
+// filtering products by "updated" alone misses them. We therefore also look at
+// the stock documents (receipts, transfers, postings) of the period and take
+// the products from their positions.
+const arrivalsCache = new Map<string, { at: number; rows: any[] }>();
+
+async function getNewArrivalRows(token: string, stamp: string): Promise<any[]> {
+  const hit = arrivalsCache.get(stamp.slice(0, 10));
+  if (hit && Date.now() - hit.at < STOCK_CACHE_TTL_MS) return hit.rows;
+
+  const rows: any[] = [];
+  const seen = new Set<string>();
+  let off = 0;
+  while (true) {
+    const j: any = await msFetch(`/entity/product?limit=1000&offset=${off}&filter=${encodeURIComponent(`updated>${stamp}`)}`, token);
+    for (const r of j.rows || []) { rows.push(r); seen.add(r.id); }
+    off += 1000;
+    if (off >= (j.meta?.size || 0)) break;
+  }
+
+  const moved = new Set<string>();
+  for (const kind of ['supply', 'move', 'enter']) {
+    try {
+      const docs: any = await msFetch(`/entity/${kind}?limit=100&filter=${encodeURIComponent(`moment>${stamp}`)}`, token);
+      for (const d of docs.rows || []) {
+        const pos: any = await msFetch(`/entity/${kind}/${d.id}/positions?limit=1000`, token);
+        for (const x of pos.rows || []) {
+          const href: string = x.assortment?.meta?.href || '';
+          if (!href.includes('/entity/product/')) continue;
+          const id = href.split('/').pop()?.split('?')[0];
+          if (id && !seen.has(id)) moved.add(id);
+        }
+      }
+    } catch (e) {
+      strapi.log.warn(`arrivals: ${kind} documents failed: ${e}`);
+    }
+  }
+
+  const ids = [...moved];
+  for (let i = 0; i < ids.length; i += 5) {
+    await Promise.all(ids.slice(i, i + 5).map(async (id) => {
+      try {
+        const pr: any = await msFetch(`/entity/product/${id}`, token);
+        rows.push(pr);
+        seen.add(id);
+      } catch { /* a variant or a deleted product — skip */ }
+    }));
+  }
+  arrivalsCache.set(stamp.slice(0, 10), { at: Date.now(), rows });
   return rows;
 }
 
@@ -660,17 +713,20 @@ export default {
     // same moment anyway.
     const sinceDays = parseInt(ctx.query.sinceDays, 10);
     const isNewArrivalsRun = sinceDays > 0;
-    let filterParam = '';
+    let total = 0;
+    let rows: any[] = [];
     if (sinceDays > 0) {
       const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
       const pad = (n: number) => String(n).padStart(2, '0');
       const stamp = `${since.getFullYear()}-${pad(since.getMonth() + 1)}-${pad(since.getDate())} ${pad(since.getHours())}:${pad(since.getMinutes())}:${pad(since.getSeconds())}`;
-      filterParam = `&filter=${encodeURIComponent(`updated>${stamp}`)}`;
+      const all = await getNewArrivalRows(token, stamp);
+      total = all.length;
+      rows = all.slice(offset, offset + limit);
+    } else {
+      const productsJson: any = await msFetch(`/entity/product?limit=${limit}&offset=${offset}`, token);
+      total = productsJson.meta?.size || 0;
+      rows = productsJson.rows || [];
     }
-
-    const productsJson: any = await msFetch(`/entity/product?limit=${limit}&offset=${offset}${filterParam}`, token);
-    const total = productsJson.meta?.size || 0;
-    const rows = productsJson.rows || [];
 
     const stockMap = await getStockMap(token);
     const pricingSettings = await getPricingSettings();
