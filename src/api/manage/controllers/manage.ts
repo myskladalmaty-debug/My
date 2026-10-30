@@ -742,7 +742,8 @@ export default {
         // before Supabase Storage was set up as shared storage).
         const currentImageUrl: string | undefined = existing[0].images?.[0]?.url;
         const hasWorkingImage = currentImageUrl && !currentImageUrl.startsWith('/uploads');
-        if ((!hasWorkingImage || refreshImages) && withImages && row.images?.meta?.size > 0) {
+        // A full refresh skips products that are out of stock — no point re-downloading their photos.
+        if ((!hasWorkingImage || (refreshImages && stock > 0)) && withImages && row.images?.meta?.size > 0) {
           const imageId = await importProductImage(row.id, token!);
           if (imageId) updateData.images = [imageId];
         }
