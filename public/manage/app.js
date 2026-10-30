@@ -443,7 +443,7 @@ async function loadProducts() {
 
 const HIGH_STOCK_THRESHOLD = 50;
 
-let statFilter = 'all'; // one of the keys in FILTERS
+let statFilter = 'published'; // one of the keys in FILTERS
 let selected = new Set(); // documentIds currently checked in the table
 
 const FILTERS = {
@@ -454,26 +454,103 @@ const FILTERS = {
   highStock: p => (p.stock ?? 0) > HIGH_STOCK_THRESHOLD,
   noPhoto: p => !(p.images && p.images.length),
   noPrice: p => !((p.wholesalePrice ?? 0) > 0),
+  noStock: p => (p.stock ?? 0) <= 0,
   noDescription: p => !(p.description && p.description.trim()),
   isNew: p => !!p.isNew,
   telegram: p => p.source === 'telegram',
 };
 
 let searchText = '';
+let viewMode = (() => { try { return localStorage.getItem('sklad_manage_view') || 'grid'; } catch { return 'grid'; } })();
 
 function filteredProducts() {
   const q = searchText.trim().toLowerCase();
   return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter)
-    .filter(p => !q || `${p.name || ''} ${p.sku || ''}`.toLowerCase().includes(q));
+    .filter(p => !q || `${p.name || ''} ${p.sku || ''}`.toLowerCase().includes(q))
+    // on-site products first, then new ones, then the rest (stable: keeps the name order inside each group)
+    .sort((a, b) => (b.published ? 2 : 0) + (b.isNew ? 1 : 0) - ((a.published ? 2 : 0) + (a.isNew ? 1 : 0)));
 }
+
+const L = (ru, kz) => (lang === 'kz' ? kz : ru);
 
 function photoUrl(p) {
   const img = p.images && p.images[0];
   if (!img) return '';
-  const f = img.formats && (img.formats.thumbnail || img.formats.small);
+  const f = img.formats && (img.formats.small || img.formats.thumbnail);
   const u = (f && f.url) || img.url || '';
   return u.startsWith('http') ? u : API_BASE + u;
 }
+
+const FIX_KEYS = ['noPhoto', 'noPrice', 'noStock'];
+
+// Top navigation: four big tabs, and under them either categories or "what to fix" pills.
+function renderSidebar() {
+  const el = document.getElementById('sidebar');
+  if (!el) return;
+  const isFix = FIX_KEYS.includes(statFilter);
+  const cnt = (f) => products.filter(FILTERS[f]).length;
+  const fixN = products.filter(p => p.published && (FILTERS.noPhoto(p) || FILTERS.noPrice(p))).length;
+  const tab = (key, ico, label, sub, n, active, warn) => `<button type="button" class="tab ${active ? 'active' : ''} ${warn ? 'warn' : ''}" data-tab="${key}"><span class="ico">${ico}</span><span><span class="tl">${label}</span><small>${sub}</small></span><span class="tn">${n}</span></button>`;
+  const tabProducts = products.filter(FILTERS[isFix ? 'all' : statFilter] || FILTERS.all);
+  const inCat = (p, id) => { const ids = new Set([id, ...subcategoriesOf(id).map(c => c.documentId)]); return p.category && ids.has(p.category.documentId); };
+  const pill = (attr, val, label, n, active) => `<button type="button" class="pill ${active ? 'active' : ''}" ${attr}="${val}">${escapeHtml(label)}<b>${n}</b></button>`;
+  let row = '';
+  if (isFix) {
+    row = `<div class="pills">
+      ${pill('data-sf', 'noPhoto', L('📷 Без фото', '📷 Фотосыз'), cnt('noPhoto'), statFilter === 'noPhoto')}
+      ${pill('data-sf', 'noPrice', L('💰 Без цены', '💰 Бағасыз'), cnt('noPrice'), statFilter === 'noPrice')}
+      ${pill('data-sf', 'noStock', L('📉 Нет в наличии', '📉 Қалдық жоқ'), cnt('noStock'), statFilter === 'noStock')}
+    </div>`;
+  } else {
+    const mains = mainCategories();
+    const subs = categoryFilter !== 'all' && categoryFilter !== 'none' ? subcategoriesOf(mains.some(c => c.documentId === categoryFilter) ? categoryFilter : (categories.find(c => c.documentId === categoryFilter)?.parent?.documentId || '')) : [];
+    const parentId = subs.length ? (categories.find(c => c.documentId === categoryFilter)?.parent?.documentId || categoryFilter) : null;
+    row = `<div class="pills">
+      ${pill('data-cf', 'all', L('Все категории', 'Барлық санаттар'), tabProducts.length, categoryFilter === 'all')}
+      ${mains.map(c => pill('data-cf', c.documentId, c.name, tabProducts.filter(p => inCat(p, c.documentId)).length, categoryFilter === c.documentId || parentId === c.documentId)).join('')}
+      ${pill('data-cf', 'none', L('Без категории', 'Санатсыз'), tabProducts.filter(p => !p.category).length, categoryFilter === 'none')}
+    </div>
+    ${subs.length ? `<div class="pills sub">${subs.map(c => pill('data-cf', c.documentId, c.name, tabProducts.filter(p => p.category && p.category.documentId === c.documentId).length, categoryFilter === c.documentId)).join('')}</div>` : ''}`;
+  }
+  el.innerHTML = `<div class="tabs">
+    ${tab('isNew', '🆕', L('Новинки', 'Жаңалықтар'), L('свежие поступления', 'жаңа түскендер'), cnt('isNew'), statFilter === 'isNew')}
+    ${tab('published', '✅', L('На сайте', 'Сайтта'), L('что видят клиенты', 'клиенттер көретіні'), cnt('published'), statFilter === 'published')}
+    ${tab('all', '📦', L('Все товары', 'Барлық тауар'), L('вся база', 'бүкіл база'), products.length, statFilter === 'all')}
+    ${tab('fix', '🛠', L('Нужно поправить', 'Түзету керек'), L('нет фото или цены', 'фото не бағасы жоқ'), fixN, isFix, fixN > 0)}
+  </div>${row}`;
+  el.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.tab;
+    statFilter = k === 'fix' ? 'noPhoto' : k;
+    categoryFilter = 'all';
+    selected.clear();
+    renderTable();
+  }));
+  el.querySelectorAll('[data-sf]').forEach(b => b.addEventListener('click', () => {
+    statFilter = b.dataset.sf;
+    selected.clear();
+    renderTable();
+  }));
+  el.querySelectorAll('[data-cf]').forEach(b => b.addEventListener('click', () => {
+    categoryFilter = b.dataset.cf;
+    selected.clear();
+    renderTable();
+  }));
+}
+
+async function togglePublish(documentId, value) {
+  try {
+    const res = await fetch(API_BASE + '/api/manage/products/' + documentId, { method: 'PUT', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ published: value }) });
+    if (!res.ok) throw new Error('fail');
+    const p = products.find(x => x.documentId === documentId);
+    if (p) p.published = value;
+    showToast(t('toastSaved'));
+    renderTable();
+  } catch (e) {
+    console.error(e);
+    showToast(L('Ошибка, попробуйте ещё раз', 'Қате, қайталап көріңіз'));
+  }
+}
+
 
 function setFilter(key) {
   statFilter = statFilter === key ? 'all' : key;
@@ -866,6 +943,7 @@ function renderBulkBar() {
 }
 
 function renderTable() {
+  renderSidebar();
   const wrap = document.getElementById('tableWrap');
   const list = filteredProducts();
   const countLabelEl = document.getElementById('countLabel');
@@ -890,37 +968,36 @@ function renderTable() {
   }
 
   const allChecked = list.length > 0 && list.every(p => selected.has(p.documentId));
+  const card = (p) => {
+    const url = photoUrl(p);
+    const st = p.stock ?? 0;
+    const price = p.wholesalePrice ?? 0;
+    const box = Number(p.minOrderQty) || 1;
+    return `
+    <div class="pcard ${selected.has(p.documentId) ? 'sel' : ''}">
+      <input type="checkbox" class="pchk" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} />
+      <div class="pimg" data-edit="${p.documentId}">
+        ${url ? `<img src="${escapeHtml(url)}" loading="lazy" alt="" />` : `<div class="nophoto"><b>📷</b><span>${L('нет фото', 'фото жоқ')}</span></div>`}
+        <div class="pbadges">${p.isNew ? `<span class="pb new">${L('Новинка', 'Жаңа')}</span>` : ''}<span class="pb ${p.published ? 'on' : 'off'}">${p.published ? L('На сайте', 'Сайтта') : L('Черновик', 'Жоба')}</span></div>
+      </div>
+      <div class="pbody">
+        <div class="psku">${escapeHtml(p.sku || p.name || '')}</div>
+        <div class="pname">${escapeHtml(p.name || '')}</div>
+        ${price > 0 ? `<div class="pprice">${money(price)}</div>` : `<div class="pprice none">${L('нет цены', 'бағасы жоқ')}</div>`}
+        <div class="pmeta"><span class="stk ${st <= 0 ? 'zero' : st < 100 ? 'low' : ''}">${st} ${L('шт.', 'дана')}</span><span>📦 ${box} ${L('в короб.', 'қорапта')}</span></div>
+        ${p.category ? `<div class="pcat">📁 ${escapeHtml(productCategoryLabel(p))}</div>` : ''}
+        <div class="pact">
+          <button data-edit="${p.documentId}">✏️ ${t('edit')}</button>
+          <button class="${p.published ? '' : 'pub'}" data-pub="${p.documentId}" data-val="${p.published ? 0 : 1}">${p.published ? L('Скрыть', 'Жасыру') : L('На сайт', 'Сайтқа')}</button>
+          <button class="del" data-del="${p.documentId}" title="${t('del')}">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  };
 
   wrap.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th class="row-check"><label class="select-all"><input type="checkbox" id="selectAllCheckbox" ${allChecked ? 'checked' : ''} /><span>${t('selectAll')}</span></label></th>
-          <th class="c-photo"></th>
-          <th>${t('thName')}</th>
-          <th>${t('thPrice')}</th>
-          <th>${t('thStock')}</th>
-          <th>${t('thStatus')}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${list.map(p => `
-          <tr>
-            <td class="row-check"><input type="checkbox" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} /></td>
-            <td class="c-photo">${photoUrl(p) ? `<img class="thumb" src="${escapeHtml(photoUrl(p))}" loading="lazy" alt="" />` : `<div class="thumb none">нет фото</div>`}</td>
-            <td class="c-name">${escapeHtml(p.name)}${p.isNew ? ` <span class="badge new">${t('badgeNew')}</span>` : ''}${p.category ? `<div class="cat-line">📁 ${escapeHtml(productCategoryLabel(p))}</div>` : ''}</td>
-            <td class="c-price ${(p.wholesalePrice ?? 0) > 0 ? '' : 'noprice'}">${(p.wholesalePrice ?? 0) > 0 ? money(p.wholesalePrice) : 'нет цены'}</td>
-            <td class="c-stock ${(p.stock ?? 0) <= 0 ? 'zero' : (p.stock ?? 0) < 100 ? 'low' : ''}">${p.stock ?? 0} шт.</td>
-            <td class="c-status"><span class="badge ${p.published ? 'on' : 'off'}">${p.published ? t('published') : t('draft')}</span></td>
-            <td class="row-actions c-actions">
-              <button data-edit="${p.documentId}">${t('edit')}</button>
-              <button class="del" data-del="${p.documentId}">${t('del')}</button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+    <label class="select-all" style="display:flex;gap:8px;align-items:center;margin:2px 2px 10px;font-size:13.5px;color:var(--muted);cursor:pointer;"><input type="checkbox" id="selectAllCheckbox" ${allChecked ? 'checked' : ''} /><span>${t('selectAll')} (${list.length})</span></label>
+    <div class="pgrid ${viewMode === 'list' ? 'list' : ''}">${list.map(card).join('')}</div>
   `;
 
   wrap.querySelectorAll('[data-edit]').forEach(btn => {
@@ -929,10 +1006,14 @@ function renderTable() {
   wrap.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => deleteProduct(btn.dataset.del));
   });
+  wrap.querySelectorAll('[data-pub]').forEach(btn => {
+    btn.addEventListener('click', () => togglePublish(btn.dataset.pub, btn.dataset.val === '1'));
+  });
   wrap.querySelectorAll('[data-check]').forEach(cb => {
     cb.addEventListener('change', (e) => {
       const id = cb.dataset.check;
       if (e.target.checked) selected.add(id); else selected.delete(id);
+      cb.closest('.pcard').classList.toggle('sel', e.target.checked);
       renderBulkBar();
       const selectAll = document.getElementById('selectAllCheckbox');
       if (selectAll) selectAll.checked = list.every(p => selected.has(p.documentId));
@@ -1406,15 +1487,27 @@ async function deleteProduct(documentId) {
 
 // ---------- Wire up ----------
 
-function setupSearch() {
+function setupToolbar() {
   const input = document.getElementById('searchInput');
-  input.placeholder = lang === 'kz' ? 'Атауы немесе артикулы бойынша іздеу…' : 'Поиск по названию или артикулу…';
+  input.placeholder = L('Поиск по названию или артикулу…', 'Атауы немесе артикулы бойынша іздеу…');
   let tm;
   input.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(() => { searchText = input.value; renderTable(); }, 200); });
+  const paint = () => document.querySelectorAll('#viewToggle button').forEach(b => b.classList.toggle('active', b.dataset.view === viewMode));
+  document.querySelectorAll('#viewToggle button').forEach(b => b.addEventListener('click', () => {
+    viewMode = b.dataset.view;
+    try { localStorage.setItem('sklad_manage_view', viewMode); } catch { /* ignore */ }
+    paint();
+    renderTable();
+  }));
+  paint();
+  const tg = document.getElementById('sidebarToggle');
+  tg.textContent = '☰ ' + L('Разделы', 'Бөлімдер');
+  tg.addEventListener('click', () => document.body.classList.add('sb-open'));
+  document.getElementById('sbBackdrop').addEventListener('click', () => document.body.classList.remove('sb-open'));
 }
 
 function init() {
-  setupSearch();
+  setupToolbar();
   applyStaticText();
   setupLangSwitch();
 
