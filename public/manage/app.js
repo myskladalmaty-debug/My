@@ -1141,8 +1141,8 @@ function renderPhotoPreview(urls) {
 
 // ---------- Import products from Excel/CSV file ----------
 
-async function syncMoysklad(sinceDays) {
-  const btn = document.getElementById(sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
+async function syncMoysklad(sinceDays, refreshPhotos = false) {
+  const btn = document.getElementById(refreshPhotos ? 'refreshPhotosBtn' : sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
 
@@ -1151,12 +1151,12 @@ async function syncMoysklad(sinceDays) {
   let updated = 0;
   let deleted = 0;
   const errors = [];
-  const sinceParam = sinceDays ? `&sinceDays=${sinceDays}` : '';
+  const sinceParam = (sinceDays ? `&sinceDays=${sinceDays}` : '') + (refreshPhotos ? '&refreshImages=true' : '');
 
   try {
     while (true) {
       btn.textContent = t('syncingMoysklad', imported + updated);
-      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=50${sinceParam}`, {
+      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=${refreshPhotos ? 10 : 50}${sinceParam}`, {
         method: 'POST',
         headers: authHeaders(),
       });
@@ -1525,6 +1525,8 @@ function init() {
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
   document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(14));
+  document.getElementById('refreshPhotosBtn').textContent = '🖼 Обновить фото из МойСклад (за 14 дней)';
+  document.getElementById('refreshPhotosBtn').addEventListener('click', () => syncMoysklad(14, true));
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
