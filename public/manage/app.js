@@ -1142,7 +1142,7 @@ function renderPhotoPreview(urls) {
 // ---------- Import products from Excel/CSV file ----------
 
 async function syncMoysklad(sinceDays, refreshPhotos = false) {
-  const btn = document.getElementById(refreshPhotos ? 'refreshPhotosBtn' : sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
+  const btn = document.getElementById(refreshPhotos ? (sinceDays ? 'refreshPhotosBtn' : 'refreshAllPhotosBtn') : sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
 
@@ -1527,6 +1527,10 @@ function init() {
   document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(14));
   document.getElementById('refreshPhotosBtn').textContent = '🖼 Обновить фото из МойСклад (за 14 дней)';
   document.getElementById('refreshPhotosBtn').addEventListener('click', () => syncMoysklad(14, true));
+  document.getElementById('refreshAllPhotosBtn').textContent = '🖼 Обновить ВСЕ фото из МойСклад';
+  document.getElementById('refreshAllPhotosBtn').addEventListener('click', () => {
+    if (confirm('Обновить фото у всех товаров в наличии? Это займёт 10–30 минут, окно закрывать нельзя. Фото, загруженные вручную, будут заменены фото из МойСклад.')) syncMoysklad(0, true);
+  });
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);
