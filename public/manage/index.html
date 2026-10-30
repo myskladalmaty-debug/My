@@ -543,15 +543,126 @@
     .modal-actions button { padding: 12px; }
     .toast { max-width: calc(100vw - 32px); text-align: center; bottom: 16px; }
   }
-  .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; display: block; background: #f1ede4; }
-  .thumb.none { display: flex; align-items: center; justify-content: center; font-size: 11px; color: #b3261e; font-weight: 600; text-align: center; }
-  td.c-photo, th.c-photo { width: 70px; }
-  .c-price.noprice { color: #b3261e; font-weight: 700; }
-  .c-stock.low { color: #b45309; font-weight: 600; } .c-stock.zero { color: #b3261e; font-weight: 600; }
+
+  /* ======== Новое оформление кабинета ======== */
+  :root { --bg: #f6f4ef; --text: #25282b; --muted: #7a7d80; --accent: #b3261e; --border: #e6e1d6; --ok: #1a7f37; --warn: #b45309; }
+  body { background: var(--bg); }
+  header { position: sticky; top: 0; z-index: 30; padding: 12px 24px; box-shadow: 0 1px 0 var(--border); }
+  header h1 { font-size: 19px; letter-spacing: .01em; }
+  header h1::before { content: '🏬 '; }
+  .add-btn { background: var(--accent); }
+  .add-btn.outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .legacy { display: none !important; }
+  .layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 22px; max-width: 1500px; margin: 0 auto; padding: 22px 24px 60px; align-items: start; }
+  .sidebar { position: sticky; top: 74px; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px 10px 16px; max-height: calc(100vh - 92px); overflow-y: auto; }
+  .sb-title { font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); padding: 12px 12px 6px; }
+  .sb-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: 0; background: none; padding: 9px 12px; border-radius: 10px; font-size: 14.5px; color: var(--text); cursor: pointer; text-align: left; }
+  .sb-item:hover { background: #f4efe6; }
+  .sb-item.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .sb-item .n { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #f0ebe0; color: var(--muted); flex-shrink: 0; }
+  .sb-item.active .n { background: rgba(255,255,255,.25); color: #fff; }
+  .sb-item.warn .n { background: #fdecea; color: var(--accent); }
+  .sb-item.sub { padding-left: 30px; font-size: 13.5px; color: #55595c; }
+  .sb-item.sub.active { color: #fff; }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .search-wrap { position: relative; flex: 1; }
+  .search-wrap .search-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); opacity: .55; font-size: 14px; }
+  .search-wrap input { width: 100%; padding: 12px 14px 12px 38px; border: 1px solid var(--border); border-radius: 12px; font-size: 15px; background: #fff; color: var(--text); }
+  .search-wrap input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px #fdecea; }
+  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+  .view-toggle button { border: 0; background: none; padding: 10px 14px; cursor: pointer; font-size: 16px; color: var(--muted); }
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+  .tb-btn { display: none; border: 1px solid var(--border); background: #fff; border-radius: 10px; padding: 11px 14px; font-weight: 600; cursor: pointer; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 16px; }
+  .pcard { position: relative; background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .15s, transform .15s; }
+  .pcard:hover { box-shadow: 0 8px 22px rgba(60,40,20,.10); transform: translateY(-2px); }
+  .pcard.sel { outline: 2px solid var(--accent); }
+  .pimg { position: relative; aspect-ratio: 1 / 1; background: #f1ede4; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
+  .pimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pimg .nophoto { text-align: center; color: #b3261e; font-size: 13px; font-weight: 600; }
+  .pimg .nophoto b { display: block; font-size: 34px; opacity: .5; margin-bottom: 4px; }
+  .pchk { position: absolute; top: 10px; left: 10px; z-index: 2; width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .pbadges { position: absolute; top: 9px; right: 9px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+  .pb { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #fff; }
+  .pb.new { background: #d97706; } .pb.on { background: var(--ok); } .pb.off { background: #8a8d90; }
+  .pbody { padding: 12px 13px 13px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .psku { font-weight: 700; font-size: 15px; }
+  .pname { font-size: 12.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; }
+  .pprice { font-size: 17px; font-weight: 800; color: var(--accent); }
+  .pprice.none { font-size: 13px; font-weight: 700; color: #fff; background: var(--accent); display: inline-block; padding: 3px 9px; border-radius: 8px; align-self: flex-start; }
+  .pmeta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; color: var(--muted); }
+  .pmeta .stk { font-weight: 700; color: var(--ok); } .pmeta .stk.low { color: var(--warn); } .pmeta .stk.zero { color: var(--accent); }
+  .pcat { font-size: 12px; color: #55595c; background: #f4efe6; border-radius: 8px; padding: 3px 8px; align-self: flex-start; }
+  .pact { display: flex; gap: 6px; margin-top: auto; padding-top: 8px; }
+  .pact button { flex: 1; border: 1px solid var(--border); background: #fff; border-radius: 9px; padding: 8px 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
+  .pact button:hover { border-color: var(--accent); color: var(--accent); }
+  .pact .pub { background: var(--ok); color: #fff; border-color: var(--ok); } .pact .pub:hover { color: #fff; filter: brightness(1.06); }
+  .pact .del { flex: 0 0 38px; color: var(--accent); }
+  .pgrid.list { grid-template-columns: 1fr; gap: 8px; }
+  .pgrid.list .pcard { flex-direction: row; align-items: center; }
+  .pgrid.list .pimg { width: 84px; height: 84px; aspect-ratio: auto; flex-shrink: 0; }
+  .pgrid.list .pimg .nophoto b { font-size: 24px; margin: 0; } .pgrid.list .pimg .nophoto span { display: none; }
+  .pgrid.list .pchk { top: 6px; left: 6px; width: 17px; height: 17px; }
+  .pgrid.list .pbadges { display: none; }
+  .pgrid.list .pbody { flex-direction: row; align-items: center; gap: 18px; padding: 8px 14px; flex-wrap: wrap; }
+  .pgrid.list .pname { min-height: 0; -webkit-line-clamp: 1; flex: 1 1 200px; font-size: 13.5px; }
+  .pgrid.list .psku { min-width: 110px; }
+  .pgrid.list .pact { margin: 0; padding: 0; min-width: 230px; }
+  .sb-backdrop { display: none; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; padding: 12px 12px 90px; gap: 12px; }
+    .sidebar { display: none; position: fixed; inset: 0 22% 0 0; top: 0; z-index: 60; max-height: none; border-radius: 0 16px 16px 0; padding-top: 18px; }
+    body.sb-open .sidebar { display: block; }
+    body.sb-open .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 55; }
+    .tb-btn { display: block; }
+    .pgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    header { padding: 10px 12px; }
+    .pgrid.list .pbody { gap: 4px 10px; } .pgrid.list .pact { min-width: 100%; }
+    .view-toggle button { padding: 10px 11px; }
+  }
+
+  /* ---- top navigation instead of the left panel ---- */
+  .layout { display: block !important; max-width: 1240px; padding: 18px 24px 60px; }
+  .sidebar { position: static !important; display: block !important; background: none !important; border: 0 !important; padding: 0 !important; max-height: none !important; overflow: visible !important; margin-bottom: 16px; inset: auto !important; }
+  .tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .tab { position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 16px; color: var(--text); text-align: left; transition: box-shadow .15s; }
+  .tab:hover { box-shadow: 0 6px 16px rgba(60,40,20,.10); }
+  .tab .ico { font-size: 26px; }
+  .tab .tl { display: block; font-weight: 700; }
+  .tab small { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .tab .tn { margin-left: auto; font-size: 13px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: #f0ebe0; color: var(--muted); }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 8px 18px rgba(179,38,30,.28); }
+  .tab.active small { color: rgba(255,255,255,.85); }
+  .tab.active .tn { background: rgba(255,255,255,.25); color: #fff; }
+  .tab.warn:not(.active) { border-color: #f0c4bf; background: #fff7f6; }
+  .tab.warn:not(.active) .tn { background: var(--accent); color: #fff; }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .pills.sub { margin-top: 8px; padding-left: 4px; }
+  .pill { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 8px 15px; font-size: 14px; cursor: pointer; color: var(--text); }
+  .pill b { font-weight: 700; color: var(--muted); margin-left: 7px; font-size: 12.5px; }
+  .pill:hover { border-color: var(--accent); }
+  .pill.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .pill.active b { color: rgba(255,255,255,.75); }
+  .pills.sub .pill { font-size: 13px; padding: 6px 12px; }
+  .tb-btn { display: none !important; }
+  @media (max-width: 900px) {
+    .layout { padding: 12px 12px 90px; }
+    .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .tab { padding: 12px; gap: 8px; } .tab small { display: none; } .tab .ico { font-size: 20px; } .tab { font-size: 14px; }
+    .pills { flex-wrap: nowrap; overflow-x: auto; margin-left: -12px; margin-right: -12px; padding: 0 12px 4px; scrollbar-width: none; }
+    .pills::-webkit-scrollbar { display: none; } .pill { flex-shrink: 0; }
+  }
+  .more-actions { margin: 4px 0 14px; }
+  .more-actions summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 2px; list-style: none; }
+  .more-actions summary:hover { color: var(--accent); }
+  .more-actions[open] summary { margin-bottom: 8px; }
+  #syncNewOnlyBtn { font-size: 15px; padding: 11px 20px; }
+  #addBtn { font-size: 15px; padding: 11px 20px; }
 </style>
 </head>
 <body>
 
+<div class="sb-backdrop" id="sbBackdrop"></div>
 <div id="loginScreen" class="login-box">
   <div class="lang-switch" id="langSwitchLogin" style="justify-content:center; margin-bottom:12px;">
     <button data-lang="ru">RU</button>
@@ -582,33 +693,46 @@
     </div>
   </header>
 
-  <div class="container">
-    <div class="stats" id="stats"></div>
-    <div class="folder-tabs" id="folderTabs"></div>
-    <div class="chips" id="chips"></div>
-    <select id="categoryFilter" class="category-filter"></select>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="legacy">
+        <div class="stats" id="stats"></div>
+        <div class="folder-tabs" id="folderTabs"></div>
+        <div class="chips" id="chips"></div>
+        <select id="categoryFilter" class="category-filter"></select>
+      </div>
 
-    <input type="search" id="searchInput" class="category-filter" style="width:100%;max-width:420px;margin-bottom:10px;" />
-    <div id="countLabel" class="count-label"></div>
+      <div class="toolbar">
+        <button type="button" class="tb-btn" id="sidebarToggle"></button>
+        <div class="search-wrap"><span class="search-ico">🔍</span><input type="search" id="searchInput" autocomplete="off" /></div>
+        <div class="view-toggle" id="viewToggle">
+          <button type="button" data-view="grid" title="Плитки">▦</button>
+          <button type="button" data-view="list" title="Список">☰</button>
+        </div>
+      </div>
+      <div id="countLabel" class="count-label"></div>
 
-    <div class="secondary-actions">
-      <button class="add-btn outline small" id="syncMoyskladBtn"></button>
-      <button class="add-btn outline small" id="importFileBtn"></button>
-      <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv,.zip" class="hidden" />
-      <span class="hint inline" id="importFileHint"></span>
-    </div>
+      <details class="more-actions"><summary>⋯ Ещё: МойСклад, загрузка файла</summary>
+      <div class="secondary-actions">
+        <button class="add-btn outline small" id="syncMoyskladBtn"></button>
+        <button class="add-btn outline small" id="importFileBtn"></button>
+        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv,.zip" class="hidden" />
+        <span class="hint inline" id="importFileHint"></span>
+      </div></details>
 
-    <div class="bulk-bar hidden" id="bulkBar">
-      <span id="bulkCount"></span>
-      <button id="bulkPublishBtn" class="bulk-btn publish"></button>
-      <button id="bulkUnpublishBtn" class="bulk-btn"></button>
-      <button id="bulkCategoryBtn" class="bulk-btn"></button>
-      <button id="bulkFindPricesBtn" class="bulk-btn"></button>
-      <button id="bulkDeleteBtn" class="bulk-btn del"></button>
-      <button id="bulkDeselectBtn" class="bulk-btn link"></button>
-    </div>
+      <div class="bulk-bar hidden" id="bulkBar">
+        <span id="bulkCount"></span>
+        <button id="bulkPublishBtn" class="bulk-btn publish"></button>
+        <button id="bulkUnpublishBtn" class="bulk-btn"></button>
+        <button id="bulkCategoryBtn" class="bulk-btn"></button>
+        <button id="bulkFindPricesBtn" class="bulk-btn"></button>
+        <button id="bulkDeleteBtn" class="bulk-btn del"></button>
+        <button id="bulkDeselectBtn" class="bulk-btn link"></button>
+      </div>
 
-    <div id="tableWrap"></div>
+      <div id="tableWrap"></div>
+    </main>
   </div>
 </div>
 
