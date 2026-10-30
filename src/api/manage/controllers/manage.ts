@@ -649,6 +649,9 @@ export default {
     const limit = Math.min(parseInt(ctx.query.limit, 10) || 15, 50);
     const offset = parseInt(ctx.query.offset, 10) || 0;
     const withImages = ctx.query.images !== 'false';
+    // Re-download the photo from MoySklad even when the product already has one
+    // (used when the photo was replaced in MoySklad).
+    const refreshImages = ctx.query.refreshImages === 'true';
 
     // Optional: only look at products MoySklad has touched in the last N
     // days — much faster than paging through everything when the admin just
@@ -739,7 +742,7 @@ export default {
         // before Supabase Storage was set up as shared storage).
         const currentImageUrl: string | undefined = existing[0].images?.[0]?.url;
         const hasWorkingImage = currentImageUrl && !currentImageUrl.startsWith('/uploads');
-        if (!hasWorkingImage && withImages && row.images?.meta?.size > 0) {
+        if ((!hasWorkingImage || refreshImages) && withImages && row.images?.meta?.size > 0) {
           const imageId = await importProductImage(row.id, token!);
           if (imageId) updateData.images = [imageId];
         }
