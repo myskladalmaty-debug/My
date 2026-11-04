@@ -11,6 +11,7 @@ export default {
     { method: 'DELETE', path: '/manage/categories/:id', handler: 'manage.deleteCategory', config: { auth: false } },
     { method: 'POST', path: '/manage/upload', handler: 'manage.upload', config: { auth: false } },
     { method: 'POST', path: '/manage/import-moysklad', handler: 'manage.importMoysklad', config: { auth: false } },
+    { method: 'POST', path: '/manage/sync-photos', handler: 'manage.syncPhotos', config: { auth: false } },
     { method: 'GET', path: '/manage/pricing-settings', handler: 'manage.getPricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/pricing-settings', handler: 'manage.savePricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/apply-pricing', handler: 'manage.applyPricing', config: { auth: false } },

@@ -1141,8 +1141,46 @@ function renderPhotoPreview(urls) {
 
 // ---------- Import products from Excel/CSV file ----------
 
-async function syncMoysklad(sinceDays, refreshPhotos = false) {
-  const btn = document.getElementById(refreshPhotos ? (sinceDays ? 'refreshPhotosBtn' : 'refreshAllPhotosBtn') : sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
+// Photos from MoySklad for products already in the cabinet: all of a product's
+// photos, not only the first. Only new or changed photos are downloaded;
+// photos added here by hand stay. Nothing gets published.
+async function syncPhotos(sinceDays) {
+  const btn = document.getElementById(sinceDays ? 'refreshPhotosBtn' : 'refreshAllPhotosBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  let offset = 0;
+  let changed = 0;
+  let downloaded = 0;
+  const errors = [];
+  try {
+    while (true) {
+      btn.textContent = `🖼 Фото… (${offset})`;
+      const res = await fetch(API_BASE + `/api/manage/sync-photos?offset=${offset}&limit=50${sinceDays ? `&sinceDays=${sinceDays}` : ''}`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error?.message || 'failed');
+      changed += result.changed || 0;
+      downloaded += result.downloaded || 0;
+      if (result.errors?.length) errors.push(...result.errors);
+      if (result.nextOffset === null || result.nextOffset === undefined) break;
+      offset = result.nextOffset;
+    }
+    showToast(`Фото готово: обновлено товаров ${changed}, скачано фото ${downloaded}` + (errors.length ? `, не скачалось ${errors.length}` : ''));
+    if (errors.length) console.error('Photo sync errors:', errors);
+    loadProducts();
+  } catch (e) {
+    console.error(e);
+    showToast(t('syncMoyskladError'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncMoysklad(sinceDays) {
+  const btn = document.getElementById(sinceDays ? 'syncNewOnlyBtn' : 'syncMoyskladBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
 
@@ -1151,12 +1189,12 @@ async function syncMoysklad(sinceDays, refreshPhotos = false) {
   let updated = 0;
   let deleted = 0;
   const errors = [];
-  const sinceParam = (sinceDays ? `&sinceDays=${sinceDays}` : '') + (refreshPhotos ? '&refreshImages=true' : '');
+  const sinceParam = sinceDays ? `&sinceDays=${sinceDays}` : '';
 
   try {
     while (true) {
       btn.textContent = t('syncingMoysklad', imported + updated);
-      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=${refreshPhotos ? 10 : 50}${sinceParam}`, {
+      const res = await fetch(API_BASE + `/api/manage/import-moysklad?offset=${offset}&limit=50${sinceParam}`, {
         method: 'POST',
         headers: authHeaders(),
       });
@@ -1525,12 +1563,10 @@ function init() {
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
   document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(7));
-  document.getElementById('refreshPhotosBtn').textContent = '🖼 Обновить фото из МойСклад (за 14 дней)';
-  document.getElementById('refreshPhotosBtn').addEventListener('click', () => syncMoysklad(14, true));
-  document.getElementById('refreshAllPhotosBtn').textContent = '🖼 Обновить ВСЕ фото из МойСклад';
-  document.getElementById('refreshAllPhotosBtn').addEventListener('click', () => {
-    if (confirm('Обновить фото у всех товаров в наличии? Это займёт 10–30 минут, окно закрывать нельзя. Фото, загруженные вручную, будут заменены фото из МойСклад.')) syncMoysklad(0, true);
-  });
+  document.getElementById('refreshPhotosBtn').textContent = '🖼 Фото из МойСклад (за 7 дней)';
+  document.getElementById('refreshPhotosBtn').addEventListener('click', () => syncPhotos(7));
+  document.getElementById('refreshAllPhotosBtn').textContent = '🖼 Фото из МойСклад (все товары)';
+  document.getElementById('refreshAllPhotosBtn').addEventListener('click', () => syncPhotos(0));
   setupMoreToggle();
   document.getElementById('f_photo').addEventListener('change', (e) => {
     selectedFiles = Array.from(e.target.files || []);

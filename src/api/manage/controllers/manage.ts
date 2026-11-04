@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import * as XLSX from 'xlsx';
 import AdmZip from 'adm-zip';
+import { planPhotos } from '../../../lib/photo-plan';
 
 const MS_BASE = 'https://api.moysklad.ru/api/remap/1.2';
 
@@ -403,16 +404,25 @@ async function categoryIdForFolderPath(pathName: string, cache: Map<string, stri
   return findOrCreateCategoryId(folders[folders.length - 1], cache, mainId);
 }
 
-// Downloads one MoySklad product image and uploads it into our own Strapi
+// Downloads a product's first MoySklad image and uploads it into our own Strapi
 // media library, returning the new local file's id (or null on failure —
 // a missing/broken photo should not abort the whole product import).
 async function importProductImage(productId: string, token: string): Promise<number | null> {
   try {
     const listJson: any = await msFetch(`/entity/product/${productId}/images`, token);
     const first = listJson.rows?.[0];
-    if (!first) return null;
+    return first ? await importMsImage(first, productId, token) : null;
+  } catch {
+    return null;
+  }
+}
 
-    const downloadHref: string = first.meta.downloadHref;
+// One MoySklad image (a row of /entity/product/{id}/images) into the media
+// library under its MoySklad file name — that name is how the photo sync
+// recognises it later (src/lib/photo-plan.ts).
+async function importMsImage(image: any, productId: string, token: string): Promise<number | null> {
+  try {
+    const downloadHref: string = image.meta.downloadHref;
     const res = await fetch(downloadHref, {
       headers: { Authorization: `Bearer ${token}`, 'Accept-Encoding': 'gzip' } as any,
     });
@@ -421,7 +431,7 @@ async function importProductImage(productId: string, token: string): Promise<num
     const buffer = Buffer.from(arrayBuffer);
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-img-'));
-    const filename = first.filename || `${productId}.jpg`;
+    const filename = image.filename || `${productId}.jpg`;
     const filepath = path.join(tmpDir, filename);
     fs.writeFileSync(filepath, buffer);
 
@@ -876,6 +886,88 @@ export default {
       updated,
       skipped,
       deleted,
+      errors,
+      nextOffset: offset + rows.length < total ? offset + rows.length : null,
+    };
+  },
+
+  // Photos of products already in the cabinet: ALL of a product's MoySklad
+  // photos, not only the first. Only photos the cabinet doesn't have yet, or
+  // that are newer in MoySklad, are downloaded; photos added by hand stay
+  // (src/lib/photo-plan.ts). Nothing else about the product changes and
+  // nothing gets published. Pages through MoySklad products; sinceDays — only
+  // products MoySklad changed in that many days (adding a photo changes it).
+  async syncPhotos(ctx: any) {
+    if (!requireAuth(ctx)) return;
+    const token = process.env.MOYSKLAD_TOKEN;
+    if (!token) {
+      ctx.badRequest('MOYSKLAD_TOKEN не задан в .env');
+      return;
+    }
+    const limit = Math.min(parseInt(ctx.query.limit, 10) || 50, 100);
+    const offset = parseInt(ctx.query.offset, 10) || 0;
+    const sinceDays = parseInt(ctx.query.sinceDays, 10);
+    let filter = '';
+    if (sinceDays > 0) {
+      // MoySklad compares in Moscow time
+      const since = new Date(Date.now() + 3 * 60 * 60 * 1000 - sinceDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+      filter = `&filter=${encodeURIComponent(`updated>${since}`)}`;
+    }
+    const page: any = await msFetch(`/entity/product?limit=${limit}&offset=${offset}&expand=images${filter}`, token);
+    const total = page.meta?.size || 0;
+    const rows: any[] = page.rows || [];
+    const products: any[] = rows.length
+      ? await strapi.documents('api::product.product').findMany({
+          filters: { moyskladId: { $in: rows.map((r) => r.id) } },
+          populate: ['images'],
+          pagination: { pageSize: rows.length * 2 },
+        } as any)
+      : [];
+    const byMs = new Map(products.map((p) => [p.moyskladId, p]));
+
+    let changed = 0;
+    let downloaded = 0;
+    const errors: string[] = [];
+
+    async function processRow(row: any) {
+      const product = byMs.get(row.id);
+      if (!product || !(row.images?.meta?.size > 0)) return;
+      let images: any[] = row.images.rows || [];
+      if (images.length < row.images.meta.size) images = (await msFetch(`/entity/product/${row.id}/images?limit=100`, token)).rows || [];
+      images = images.slice(0, 10);
+      const current: any[] = product.images || [];
+      const plan = planPhotos(current, images);
+      if (!plan) return;
+      const ids: number[] = [];
+      for (const step of plan) {
+        if ('id' in step) { ids.push(step.id); continue; }
+        const id = await importMsImage(images[step.download], row.id, token);
+        if (id) { ids.push(id); downloaded += 1; continue; }
+        errors.push(`${product.sku || product.name}: фото «${images[step.download].filename}» не скачалось`);
+        if (step.fallback !== undefined) ids.push(step.fallback);
+      }
+      if (!ids.length || ids.join() === current.map((c) => c.id).join()) return;
+      await strapi.documents('api::product.product').update({ documentId: product.documentId, data: { images: ids } } as any);
+      changed += 1;
+    }
+
+    const CONCURRENCY = 3;
+    for (let i = 0; i < rows.length; i += CONCURRENCY) {
+      await Promise.all(
+        rows.slice(i, i + CONCURRENCY).map((row: any) =>
+          processRow(row).catch((err: any) => {
+            errors.push(`${row.name || row.id}: ${err.message || err}`);
+          })
+        )
+      );
+    }
+
+    ctx.body = {
+      total,
+      offset,
+      processed: rows.length,
+      changed,
+      downloaded,
       errors,
       nextOffset: offset + rows.length < total ? offset + rows.length : null,
     };
