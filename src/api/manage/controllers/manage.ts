@@ -801,7 +801,10 @@ export default {
         // A full refresh skips products that are out of stock — no point re-downloading their photos.
         if ((!hasWorkingImage || (refreshImages && stock > 0)) && withImages && row.images?.meta?.size > 0) {
           const imageId = await importProductImage(row.id, token!);
-          if (imageId) updateData.images = [imageId];
+          // Only the first photo comes from MoySklad — the 2nd, 3rd… were added by
+          // hand in the cabinet and must survive a photo refresh.
+          const rest = (existing[0].images || []).slice(1).map((img: any) => img.id).filter(Boolean);
+          if (imageId) updateData.images = [imageId, ...rest];
         }
         await strapi.documents('api::product.product').update({
           documentId: existing[0].documentId,
