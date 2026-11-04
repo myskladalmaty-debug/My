@@ -933,7 +933,7 @@ export default {
       const product = byMs.get(row.id);
       if (!product || !(row.images?.meta?.size > 0)) return;
       let images: any[] = row.images.rows || [];
-      if (images.length < row.images.meta.size) images = (await msFetch(`/entity/product/${row.id}/images?limit=100`, token)).rows || [];
+      if (images.length < row.images.meta.size) images = (await msFetch(`/entity/product/${row.id}/images?limit=100`, token!)).rows || [];
       images = images.slice(0, 10);
       const current: any[] = product.images || [];
       const plan = planPhotos(current, images);
@@ -941,7 +941,7 @@ export default {
       const ids: number[] = [];
       for (const step of plan) {
         if ('id' in step) { ids.push(step.id); continue; }
-        const id = await importMsImage(images[step.download], row.id, token);
+        const id = await importMsImage(images[step.download], row.id, token!);
         if (id) { ids.push(id); downloaded += 1; continue; }
         errors.push(`${product.sku || product.name}: фото «${images[step.download].filename}» не скачалось`);
         if (step.fallback !== undefined) ids.push(step.fallback);
