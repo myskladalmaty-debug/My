@@ -933,7 +933,10 @@ export default {
       const product = byMs.get(row.id);
       if (!product || !(row.images?.meta?.size > 0)) return;
       let images: any[] = row.images.rows || [];
-      if (images.length < row.images.meta.size) images = (await msFetch(`/entity/product/${row.id}/images?limit=100`, token!)).rows || [];
+      if (images.length < row.images.meta.size) {
+        const all: any = await msFetch(`/entity/product/${row.id}/images?limit=100`, token!);
+        images = all.rows || [];
+      }
       images = images.slice(0, 10);
       const current: any[] = product.images || [];
       const plan = planPhotos(current, images);
