@@ -87,7 +87,7 @@ const translations = {
     pricingApplied: (n) => `Готово — обновлено цен: ${n}`,
     pricingSaved: 'Настройки сохранены',
     syncMoyskladBtn: '🔄 Синхронизировать с МойСклад',
-    syncNewOnlyBtn: '🆕 Новинки за 14 дней',
+    syncNewOnlyBtn: '🆕 Новинки за 7 дней',
     syncingMoysklad: (n) => `Синхронизация… (${n})`,
     syncMoyskladDone: (imported, updated, deleted) => `Готово: добавлено ${imported}, обновлено ${updated}, удалено ${deleted}`,
     syncMoyskladError: 'Не удалось синхронизировать с МойСклад',
@@ -210,7 +210,7 @@ const translations = {
     pricingApplied: (n) => `Дайын — жаңартылған бағалар: ${n}`,
     pricingSaved: 'Баптаулар сақталды',
     syncMoyskladBtn: '🔄 МойСклад-пен синхрондау',
-    syncNewOnlyBtn: '🆕 14 күндегі жаңалар',
+    syncNewOnlyBtn: '🆕 7 күндегі жаңалар',
     syncingMoysklad: (n) => `Синхрондалуда… (${n})`,
     syncMoyskladDone: (imported, updated, deleted) => `Дайын: қосылды ${imported}, жаңартылды ${updated}, жойылды ${deleted}`,
     syncMoyskladError: 'МойСклад-пен синхрондау мүмкін болмады',
@@ -1524,7 +1524,7 @@ function init() {
   setupCategories();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());
-  document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(14));
+  document.getElementById('syncNewOnlyBtn').addEventListener('click', () => syncMoysklad(7));
   document.getElementById('refreshPhotosBtn').textContent = '🖼 Обновить фото из МойСклад (за 14 дней)';
   document.getElementById('refreshPhotosBtn').addEventListener('click', () => syncMoysklad(14, true));
   document.getElementById('refreshAllPhotosBtn').textContent = '🖼 Обновить ВСЕ фото из МойСклад';
