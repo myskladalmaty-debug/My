@@ -308,6 +308,9 @@
     color: #fff;
     border: none;
   }
+  .logins-list { max-height: 55vh; overflow: auto; font-size: 13px; }
+  .logins-list div { padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .logins-list .fail { color: #b42318; }
   .hint {
     font-size: 12px;
     color: var(--muted);
@@ -684,6 +687,7 @@
       <button class="add-btn outline" id="categoriesBtn"></button>
     </div>
     <div class="header-right">
+      <button id="loginsBtn" title="Кто входил в кабинет">👤</button>
       <button id="pricingBtn">⚙️</button>
       <div class="lang-switch" id="langSwitch">
         <button data-lang="ru">RU</button>
@@ -872,6 +876,17 @@
     <div class="modal-actions">
       <button type="button" id="moveCancelBtn"></button>
       <button type="button" class="save" id="moveSaveBtn"></button>
+    </div>
+  </div>
+</div>
+
+<div id="loginsOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3>Кто входил в кабинет</h3>
+    <p class="hint" style="margin-top:0;">Вход по паролю, неверный пароль и работа в кабинете (с одного устройства — не чаще раза в 30 минут). Время — Алматы.</p>
+    <div id="loginsList" class="logins-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="loginsCloseBtn">Закрыть</button>
     </div>
   </div>
 </div>

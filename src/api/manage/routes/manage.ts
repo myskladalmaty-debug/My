@@ -1,6 +1,7 @@
 export default {
   routes: [
     { method: 'POST', path: '/manage/login', handler: 'manage.login', config: { auth: false } },
+    { method: 'GET', path: '/manage/logins', handler: 'manage.listLogins', config: { auth: false } },
     { method: 'GET', path: '/manage/products', handler: 'manage.listProducts', config: { auth: false } },
     { method: 'POST', path: '/manage/products', handler: 'manage.createProduct', config: { auth: false } },
     { method: 'PUT', path: '/manage/products/:id', handler: 'manage.updateProduct', config: { auth: false } },

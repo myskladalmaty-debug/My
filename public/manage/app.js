@@ -1377,6 +1377,43 @@ async function applyPricingToAll() {
   }
 }
 
+// Who opened the cabinet: password logins, wrong passwords and work in the
+// cabinet (the server keeps the log: manage.listLogins).
+const LOGIN_KINDS = { login: 'вход по паролю', fail: '⚠️ неверный пароль', visit: 'работа в кабинете' };
+
+async function openLoginsModal() {
+  const box = document.getElementById('loginsList');
+  box.textContent = '…';
+  document.getElementById('loginsOverlay').classList.remove('hidden');
+  try {
+    const res = await fetch(API_BASE + '/api/manage/logins', { headers: authHeaders() });
+    if (!res.ok) throw new Error('logins ' + res.status);
+    const { entries = [] } = await res.json();
+    const rows = entries.map((e) => {
+      const row = document.createElement('div');
+      if (e.kind === 'fail') row.className = 'fail';
+      const when = new Date(e.at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const who = e.device === 'program' ? 'программа (автообновление или проверка)' : e.device;
+      row.textContent = `${when} — ${LOGIN_KINDS[e.kind] || e.kind} — ${who} — IP ${e.ip}`;
+      return row;
+    });
+    if (rows.length) box.replaceChildren(...rows);
+    else box.textContent = 'Записей пока нет: журнал ведётся с этого обновления кабинета.';
+  } catch (e) {
+    console.error(e);
+    box.textContent = 'Не получилось загрузить журнал входов.';
+  }
+}
+
+function setupLogins() {
+  const overlay = document.getElementById('loginsOverlay');
+  document.getElementById('loginsBtn').addEventListener('click', openLoginsModal);
+  document.getElementById('loginsCloseBtn').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+}
+
 function setupPricing() {
   document.getElementById('pricingBtn').addEventListener('click', openPricingModal);
   document.getElementById('pricingCancelBtn').addEventListener('click', closePricingModal);
@@ -1559,6 +1596,7 @@ function init() {
   document.getElementById('productForm').addEventListener('submit', saveProduct);
   setupPasteAutofill();
   setupPricing();
+  setupLogins();
   setupCategories();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());

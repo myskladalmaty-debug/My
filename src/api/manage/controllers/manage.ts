@@ -531,6 +531,55 @@ function passwordMatches(given: string, expected: string): boolean {
   return crypto.timingSafeEqual(hash(given), hash(expected));
 }
 
+// Login log — who opened the cabinet and when: a password login, a wrong
+// password, and work in the cabinet. A token lasts 30 days, so after one
+// login people come back without the password; their work is noted at most
+// once per 30 minutes per device. Programs (the dashboard's updates, checks)
+// are noted only when they log in — they call every couple of hours. The
+// last LOGIN_LOG_MAX entries live in the same store as the pricing settings.
+const LOGIN_LOG_KEY = 'loginLog';
+const LOGIN_LOG_MAX = 300;
+const VISIT_EVERY_MS = 30 * 60 * 1000;
+const lastVisit = new Map<string, number>();
+type LoginLogEntry = { at: string; kind: 'login' | 'fail' | 'visit'; ip: string; device: string };
+
+// The server sits behind Render's proxy: the client's address is in the headers.
+function clientIp(ctx: any): string {
+  const h = ctx.request.header || {};
+  const forwarded = String(h['x-forwarded-for'] || '').split(',')[0].trim();
+  return String(h['cf-connecting-ip'] || forwarded || ctx.request.ip || 'unknown');
+}
+
+function deviceOf(ua: string): string {
+  if (!/Mozilla/i.test(ua)) return 'program';
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Windows/.test(ua) ? 'Windows' : /Macintosh|Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '?';
+  const browser = /YaBrowser/.test(ua) ? 'Yandex' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera'
+    : /Telegram/.test(ua) ? 'Telegram' : /WhatsApp/.test(ua) ? 'WhatsApp' : /CriOS|Chrome\//.test(ua) ? 'Chrome'
+    : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+  return `${os}, ${browser}`;
+}
+
+async function addLoginLog(ctx: any, kind: LoginLogEntry['kind']) {
+  try {
+    const entry: LoginLogEntry = { at: new Date().toISOString(), kind, ip: clientIp(ctx), device: deviceOf(String(ctx.request.header['user-agent'] || '')) };
+    const store = pricingStore();
+    const list = ((await store.get({ key: LOGIN_LOG_KEY })) as LoginLogEntry[] | null) || [];
+    await store.set({ key: LOGIN_LOG_KEY, value: [entry, ...list].slice(0, LOGIN_LOG_MAX) });
+  } catch (e) {
+    strapi.log.warn(`login log: ${e}`);
+  }
+}
+
+function noteVisit(ctx: any, token: string) {
+  if (!/Mozilla/i.test(String(ctx.request.header['user-agent'] || ''))) return;
+  const key = token.slice(-24) + '|' + clientIp(ctx);
+  const now = Date.now();
+  if (now - (lastVisit.get(key) || 0) < VISIT_EVERY_MS) return;
+  lastVisit.set(key, now);
+  void addLoginLog(ctx, 'visit');
+}
+
 function requireAuth(ctx: any): boolean {
   const header = ctx.request.header.authorization as string | undefined;
   if (!header || !header.startsWith('Bearer ')) {
@@ -540,6 +589,7 @@ function requireAuth(ctx: any): boolean {
   const token = header.slice('Bearer '.length);
   try {
     jwt.verify(token, getSecret());
+    noteVisit(ctx, token);
     return true;
   } catch {
     ctx.unauthorized('Сессия истекла, войдите заново');
@@ -567,13 +617,22 @@ export default {
 
     if (typeof password !== 'string' || !password || !passwordMatches(password, expected)) {
       recordLoginFail(ip, now);
+      void addLoginLog(ctx, 'fail');
       ctx.unauthorized('Неверный пароль');
       return;
     }
     loginFailsByIp.delete(ip);
 
     const token = jwt.sign({ role: 'manager' }, getSecret(), { expiresIn: '30d' });
+    lastVisit.set(token.slice(-24) + '|' + clientIp(ctx), now);   // the requests right after logging in are not a separate visit
+    void addLoginLog(ctx, 'login');
     ctx.body = { token };
+  },
+
+  async listLogins(ctx: any) {
+    if (!requireAuth(ctx)) return;
+    const entries = ((await pricingStore().get({ key: LOGIN_LOG_KEY })) as LoginLogEntry[] | null) || [];
+    ctx.body = { entries };
   },
 
   async listProducts(ctx: any) {
