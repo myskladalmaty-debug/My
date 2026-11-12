@@ -33,7 +33,7 @@ const translations = {
     l_paste: 'Вставьте текст товара (например, из поста поставщика)',
     pasteHint: 'Название определится само по первой строке — можно поправить ниже',
     l_name: 'Название *',
-    l_sku: 'Артикул',
+    l_sku: 'Код МойСклад',
     l_category: 'Категория',
     categoryHint: 'Нет нужной категории — добавьте её в «📁 Категории» вверху.',
     noCategory: '— без категории —',
@@ -156,7 +156,7 @@ const translations = {
     l_paste: 'Тауар мәтінін қойыңыз (мысалы, жеткізушінің хабарламасынан)',
     pasteHint: 'Атауы бірінші жолдан автоматты түрде анықталады — төменде түзетуге болады',
     l_name: 'Атауы *',
-    l_sku: 'Артикул',
+    l_sku: 'МойСклад коды',
     l_category: 'Санат',
     categoryHint: 'Қажетті санат жоқ па — оны жоғарыдағы «📁 Санаттар» арқылы қосыңыз.',
     noCategory: '— санатсыз —',
@@ -466,7 +466,7 @@ let viewMode = (() => { try { return localStorage.getItem('sklad_manage_view') |
 function filteredProducts() {
   const q = searchText.trim().toLowerCase();
   return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter)
-    .filter(p => !q || `${p.name || ''} ${p.sku || ''}`.toLowerCase().includes(q))
+    .filter(p => !q || `${p.name || ''} ${p.sku || ''} ${p.article || ''}`.toLowerCase().includes(q))
     // on-site products first, then new ones, then the rest (stable: keeps the name order inside each group)
     .sort((a, b) => (b.published ? 2 : 0) + (b.isNew ? 1 : 0) - ((a.published ? 2 : 0) + (a.isNew ? 1 : 0)));
 }
@@ -968,6 +968,9 @@ function renderTable() {
   }
 
   const allChecked = list.length > 0 && list.every(p => selected.has(p.documentId));
+  // Same as the shop and the WhatsApp orders: MoySklad's "Артикул" if filled in,
+  // otherwise the name (it holds the model). The code ("00340") is MoySklad's own numbering.
+  const titleOf = (p) => String(p.article || '').trim() || p.name || p.sku || '';
   const card = (p) => {
     const url = photoUrl(p);
     const st = p.stock ?? 0;
@@ -981,8 +984,8 @@ function renderTable() {
         <div class="pbadges">${p.isNew ? `<span class="pb new">${L('Новинка', 'Жаңа')}</span>` : ''}<span class="pb ${p.published ? 'on' : 'off'}">${p.published ? L('На сайте', 'Сайтта') : L('Черновик', 'Жоба')}</span></div>
       </div>
       <div class="pbody">
-        <div class="psku">${escapeHtml(p.sku || p.name || '')}</div>
-        <div class="pname">${escapeHtml(p.name || '')}</div>
+        <div class="psku">${escapeHtml(titleOf(p))}</div>
+        <div class="pname">${escapeHtml([titleOf(p) !== p.name ? p.name : '', p.sku ? L('код', 'код') + ' ' + p.sku : ''].filter(Boolean).join(' · '))}</div>
         ${price > 0 ? `<div class="pprice">${money(price)}</div>` : `<div class="pprice none">${L('нет цены', 'бағасы жоқ')}</div>`}
         <div class="pmeta"><span class="stk ${st <= 0 ? 'zero' : st < 100 ? 'low' : ''}">${st} ${L('шт.', 'дана')}</span><span>📦 ${box} ${L('в короб.', 'қорапта')}</span></div>
         ${p.category ? `<div class="pcat">📁 ${escapeHtml(productCategoryLabel(p))}</div>` : ''}
