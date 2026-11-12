@@ -843,7 +843,9 @@ export default {
         // we never overwrite something the admin already wrote by hand.
         // Publishing is a manual, deliberate action in the cabinet — sync
         // never flips it on (or off) by itself.
-        const updateData: any = { stock, minOrderQty, costPrice };
+        // MoySklad's "Артикул" is what the shop shows instead of the code
+        // (sku stays the code: it keys carts and product links).
+        const updateData: any = { stock, minOrderQty, costPrice, article: row.article || null };
         // New-arrivals run: anything that changed in the window AND is in
         // stock is a fresh arrival — publish it and file it under "Новинки",
         // even if it was already sitting on the site as a draft.
@@ -906,6 +908,7 @@ export default {
         // updates to already-existing products never touch either flag.
         published: isNewArrivalsRun,
         moyskladId: row.id,
+        article: row.article || null,
         category: categoryId,
         isNew: isNewArrivalsRun,
         source: 'moysklad',
