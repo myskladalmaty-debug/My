@@ -420,7 +420,11 @@ function normalize(item) {
 
 async function loadProducts() {
   const wrap = document.getElementById('tableWrap');
-  wrap.innerHTML = `<div class="empty">${t('loadingList')}</div>`;
+  // After saving, publishing or deleting, the list reloads in place and the
+  // page stays where the manager was — the "loading" text used to shrink the
+  // page first and throw it back to the top.
+  const y = window.scrollY;
+  if (!products.length) wrap.innerHTML = `<div class="empty">${t('loadingList')}</div>`;
   try {
     const res = await fetch(API_BASE + '/api/manage/products', { headers: authHeaders() });
     if (res.status === 401) {
@@ -435,6 +439,7 @@ async function loadProducts() {
     renderChips();
     renderCategoryFilter();
     renderTable();
+    if (y) window.scrollTo(0, y);
   } catch (e) {
     wrap.innerHTML = `<div class="empty">${t('loadErrorList')}</div>`;
     console.error(e);
