@@ -451,9 +451,16 @@ const HIGH_STOCK_THRESHOLD = 50;
 let statFilter = 'published'; // one of the keys in FILTERS
 let selected = new Set(); // documentIds currently checked in the table
 
+// The shop (rmz.business) shows a published product only from 100 pcs in stock
+// (vercel-catalog: MIN_STOCK). "На сайте" here means what clients really see;
+// a published product with less is marked "not on the site" so nobody looks for it there.
+const SITE_MIN_STOCK = 100;
+const onSite = p => p.published && (p.stock ?? 0) >= SITE_MIN_STOCK;
+
 const FILTERS = {
   all: () => true,
-  published: p => p.published,
+  published: onSite,
+  hidden: p => p.published && !onSite(p),
   draft: p => !p.published,
   lowStock: p => (p.stock ?? 0) <= LOW_STOCK_THRESHOLD,
   highStock: p => (p.stock ?? 0) > HIGH_STOCK_THRESHOLD,
@@ -473,7 +480,7 @@ function filteredProducts() {
   return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter)
     .filter(p => !q || `${p.name || ''} ${p.sku || ''} ${p.article || ''}`.toLowerCase().includes(q))
     // on-site products first, then new ones, then the rest (stable: keeps the name order inside each group)
-    .sort((a, b) => (b.published ? 2 : 0) + (b.isNew ? 1 : 0) - ((a.published ? 2 : 0) + (a.isNew ? 1 : 0)));
+    .sort((a, b) => (onSite(b) ? 2 : 0) + (b.isNew ? 1 : 0) - ((onSite(a) ? 2 : 0) + (a.isNew ? 1 : 0)));
 }
 
 const L = (ru, kz) => (lang === 'kz' ? kz : ru);
@@ -486,7 +493,7 @@ function photoUrl(p) {
   return u.startsWith('http') ? u : API_BASE + u;
 }
 
-const FIX_KEYS = ['noPhoto', 'noPrice', 'noStock'];
+const FIX_KEYS = ['noPhoto', 'noPrice', 'noStock', 'hidden'];
 
 // Top navigation: four big tabs, and under them either categories or "what to fix" pills.
 function renderSidebar() {
@@ -505,6 +512,7 @@ function renderSidebar() {
       ${pill('data-sf', 'noPhoto', L('📷 Без фото', '📷 Фотосыз'), cnt('noPhoto'), statFilter === 'noPhoto')}
       ${pill('data-sf', 'noPrice', L('💰 Без цены', '💰 Бағасыз'), cnt('noPrice'), statFilter === 'noPrice')}
       ${pill('data-sf', 'noStock', L('📉 Нет в наличии', '📉 Қалдық жоқ'), cnt('noStock'), statFilter === 'noStock')}
+      ${pill('data-sf', 'hidden', L('🚫 Опубликован, но не виден (меньше 100 шт.)', '🚫 Жарияланған, бірақ көрінбейді (100 данадан аз)'), cnt('hidden'), statFilter === 'hidden')}
     </div>`;
   } else {
     const mains = mainCategories();
@@ -986,7 +994,9 @@ function renderTable() {
       <input type="checkbox" class="pchk" data-check="${p.documentId}" ${selected.has(p.documentId) ? 'checked' : ''} />
       <div class="pimg" data-edit="${p.documentId}">
         ${url ? `<img src="${escapeHtml(url)}" loading="lazy" alt="" />` : `<div class="nophoto"><b>📷</b><span>${L('нет фото', 'фото жоқ')}</span></div>`}
-        <div class="pbadges">${p.isNew ? `<span class="pb new">${L('Новинка', 'Жаңа')}</span>` : ''}<span class="pb ${p.published ? 'on' : 'off'}">${p.published ? L('На сайте', 'Сайтта') : L('Черновик', 'Жоба')}</span></div>
+        <div class="pbadges">${p.isNew ? `<span class="pb new">${L('Новинка', 'Жаңа')}</span>` : ''}${onSite(p) ? `<span class="pb on">${L('На сайте', 'Сайтта')}</span>`
+          : p.published ? `<span class="pb hold" title="${L('Опубликован, но сайт показывает товар только от 100 шт.', 'Жарияланған, бірақ сайт 100 данадан бастап көрсетеді')}">${L('Нет на сайте: мало шт.', 'Сайтта жоқ: аз')}</span>`
+          : `<span class="pb off">${L('Черновик', 'Жоба')}</span>`}</div>
       </div>
       <div class="pbody">
         <div class="psku">${escapeHtml(titleOf(p))}</div>
