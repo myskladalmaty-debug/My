@@ -83,6 +83,38 @@ async function getStockMap(token: string): Promise<Record<string, StockMapEntry>
   return map;
 }
 
+// When each product last came in: the newest receipt (приёмка) or entry
+// (оприходование) in MoySklad over the last 120 days, as an ISO time, keyed by
+// the product's id. The shop puts the latest arrivals first by it — a
+// product's creation date says nothing when an old product is brought in again.
+// On a MoySklad error the map is just emptier: arrival dates stay as they were.
+let arrivalDatesCache: { at: number; map: Map<string, string> } | null = null;
+async function getArrivalMap(token: string): Promise<Map<string, string>> {
+  if (arrivalDatesCache && Date.now() - arrivalDatesCache.at < STOCK_CACHE_TTL_MS) return arrivalDatesCache.map;
+  const map = new Map<string, string>();
+  // MoySklad compares in Moscow time
+  const since = new Date(Date.now() + 3 * 60 * 60 * 1000 - 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  for (const kind of ['supply', 'enter']) {
+    try {
+      for (let offset = 0; offset < 5000; offset += 100) {
+        const docs: any = await msFetch(`/entity/${kind}?limit=100&offset=${offset}&expand=positions&filter=${encodeURIComponent(`moment>=${since}`)}`, token);
+        for (const d of docs.rows || []) {
+          const at = new Date(String(d.moment).replace(' ', 'T') + '+03:00').toISOString();
+          for (const x of d.positions?.rows || []) {
+            const id = String(x.assortment?.meta?.href || '').split('/').pop()?.split('?')[0];
+            if (id && !(map.get(id)! >= at)) map.set(id, at);
+          }
+        }
+        if (offset + 100 >= (docs.meta?.size || 0)) break;
+      }
+    } catch (e) {
+      strapi.log.warn(`arrival dates: ${kind} documents failed: ${e}`);
+    }
+  }
+  arrivalDatesCache = { at: Date.now(), map };
+  return map;
+}
+
 // Same /report/stock/all report as getStockMap, but keeping the raw rows
 // (name + price + stock) instead of just a stock-by-id map — this is where
 // MoySklad actually keeps a computed cost price per product ("price", in
@@ -647,7 +679,7 @@ export default {
 
   async createProduct(ctx: any) {
     if (!requireAuth(ctx)) return;
-    const data = ctx.request.body;
+    const data = { arrivedAt: new Date().toISOString(), ...ctx.request.body };
     const created = await strapi.documents('api::product.product').create({
       data,
       populate: ['images', 'category'],
@@ -798,6 +830,7 @@ export default {
     }
 
     const stockMap = await getStockMap(token);
+    const arrivals = await getArrivalMap(token);
     const pricingSettings = await getPricingSettings();
     const categoryCache = new Map<string, string>();
 
@@ -846,6 +879,12 @@ export default {
         // MoySklad's "Артикул" is what the shop shows instead of the code
         // (sku stays the code: it keys carts and product links).
         const updateData: any = { stock, minOrderQty, costPrice, article: row.article || null };
+        // Arrival date only moves forward: the latest receipt, or the date the
+        // product appeared in the cabinet when MoySklad has no receipt for it.
+        const known = new Date(existing[0].arrivedAt || existing[0].createdAt).toISOString();
+        const arrived = arrivals.get(row.id);
+        const arrivedAt = arrived && arrived > known ? arrived : known;
+        if (!existing[0].arrivedAt || arrivedAt !== new Date(existing[0].arrivedAt).toISOString()) updateData.arrivedAt = arrivedAt;
         // New-arrivals run: anything that changed in the window AND is in
         // stock is a fresh arrival — publish it and file it under "Новинки",
         // even if it was already sitting on the site as a draft.
@@ -909,6 +948,7 @@ export default {
         published: isNewArrivalsRun,
         moyskladId: row.id,
         article: row.article || null,
+        arrivedAt: arrivals.get(row.id) || new Date().toISOString(),
         category: categoryId,
         isNew: isNewArrivalsRun,
         source: 'moysklad',
@@ -1324,7 +1364,7 @@ export default {
           }
         }
 
-        await strapi.documents('api::product.product').create({ data } as any);
+        await strapi.documents('api::product.product').create({ data: { arrivedAt: new Date().toISOString(), ...data } } as any);
         created += 1;
       } catch (err: any) {
         errors.push(`${rowLabel}: ${err.message || err}`);
@@ -1409,7 +1449,7 @@ export default {
         if (imageId) data.images = [imageId];
       }
 
-      await strapi.documents('api::product.product').create({ data } as any);
+      await strapi.documents('api::product.product').create({ data: { arrivedAt: new Date().toISOString(), ...data } } as any);
       const priceLine = parsed.price
         ? `\nЦена взята из поста: ${data.wholesalePrice} ₸.`
         : data.wholesalePrice

@@ -75,6 +75,9 @@
       "type": "boolean",
       "default": false
     },
+    "arrivedAt": {
+      "type": "datetime"
+    },
     "source": {
       "type": "enumeration",
       "enum": ["manual", "file", "telegram", "moysklad"],

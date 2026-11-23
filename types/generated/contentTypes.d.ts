@@ -486,6 +486,7 @@ export interface ApiProductProduct extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    arrivedAt: Schema.Attribute.DateTime;
     article: Schema.Attribute.String;
     category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
     costPrice: Schema.Attribute.Decimal &
