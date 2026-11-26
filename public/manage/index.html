@@ -687,6 +687,7 @@
       <button class="add-btn outline" id="categoriesBtn"></button>
     </div>
     <div class="header-right">
+      <button id="siteSettingsBtn" title="Контакты на сайте: телефон, WhatsApp, адрес">📞</button>
       <button id="loginsBtn" title="Кто входил в кабинет">👤</button>
       <button id="pricingBtn">⚙️</button>
       <div class="lang-switch" id="langSwitch">
@@ -877,6 +878,68 @@
       <button type="button" id="moveCancelBtn"></button>
       <button type="button" class="save" id="moveSaveBtn"></button>
     </div>
+  </div>
+</div>
+
+<div id="siteSettingsOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3>Контакты на сайте</h3>
+    <p class="hint" style="margin-top:0;">Что видят клиенты на rmz.business. После «Сохранить» сайт покажет новое в течение минуты.</p>
+    <form id="siteSettingsForm" autocomplete="off">
+      <div class="two-col">
+        <div class="field">
+          <label for="s_whatsapp">WhatsApp для заказов</label>
+          <input type="tel" id="s_whatsapp" placeholder="+7 700 991 58 48" />
+        </div>
+        <div class="field">
+          <label for="s_phone">Телефон для звонков</label>
+          <input type="tel" id="s_phone" placeholder="+7 700 991 58 48" />
+        </div>
+      </div>
+      <p class="hint" style="margin-top:-6px;">На номер WhatsApp приходят заказы из корзины сайта.</p>
+      <div class="two-col">
+        <div class="field">
+          <label for="s_addressRu">Адрес (рус)</label>
+          <input type="text" id="s_addressRu" maxlength="200" />
+        </div>
+        <div class="field">
+          <label for="s_addressKz">Адрес (қаз)</label>
+          <input type="text" id="s_addressKz" maxlength="200" />
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label for="s_hoursRu">Время работы (рус)</label>
+          <input type="text" id="s_hoursRu" maxlength="200" placeholder="Ежедневно 9:00–18:00" />
+        </div>
+        <div class="field">
+          <label for="s_hoursKz">Время работы (қаз)</label>
+          <input type="text" id="s_hoursKz" maxlength="200" placeholder="Күн сайын 9:00–18:00" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="s_minOrder">Минимальный заказ, ₸</label>
+        <input type="text" inputmode="numeric" id="s_minOrder" placeholder="100000" />
+      </div>
+      <div class="field">
+        <label for="s_telegram">Telegram (ссылка или @имя)</label>
+        <input type="text" id="s_telegram" placeholder="https://t.me/…" />
+      </div>
+      <div class="field">
+        <label for="s_whatsappChannel">Канал WhatsApp (ссылка)</label>
+        <input type="text" id="s_whatsappChannel" placeholder="https://whatsapp.com/channel/…" />
+      </div>
+      <div class="field">
+        <label for="s_instagram">Instagram (ссылка или @имя, можно пусто)</label>
+        <input type="text" id="s_instagram" placeholder="@rmz…" />
+      </div>
+      <p class="hint" style="margin-top:0;">Пустая ссылка — кнопка на сайте не показывается.</p>
+      <p class="hint" id="siteSettingsInfo" style="margin-top:0;"></p>
+      <div class="modal-actions">
+        <button type="button" id="siteSettingsCancelBtn">Отмена</button>
+        <button type="submit" class="save" id="siteSettingsSaveBtn">Сохранить</button>
+      </div>
+    </form>
   </div>
 </div>
 

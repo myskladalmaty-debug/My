@@ -1423,6 +1423,83 @@ async function openLoginsModal() {
   }
 }
 
+// --- «📞 Контакты сайта»: phone, WhatsApp, address, hours and minimum order
+// that rmz.business shows. Saved on the server (manage.saveSiteSettings); the
+// site reads them on every visit.
+const SITE_FIELDS = ['whatsapp', 'phone', 'addressRu', 'addressKz', 'hoursRu', 'hoursKz', 'minOrder', 'telegram', 'whatsappChannel', 'instagram'];
+
+function prettyPhone(digits) {
+  const d = String(digits || '');
+  return d.length === 11 && d.startsWith('7')
+    ? `+7 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}`
+    : d ? '+' + d : '';
+}
+
+async function openSiteSettingsModal() {
+  const overlay = document.getElementById('siteSettingsOverlay');
+  const info = document.getElementById('siteSettingsInfo');
+  info.textContent = 'Загружаю…';
+  overlay.classList.remove('hidden');
+  try {
+    const res = await fetch(API_BASE + '/api/manage/site-settings', { cache: 'no-store' });
+    if (!res.ok) throw new Error('site-settings ' + res.status);
+    const { settings = {} } = await res.json();
+    for (const key of SITE_FIELDS) {
+      let v = settings[key] ?? '';
+      if (key === 'whatsapp' || key === 'phone') v = prettyPhone(v);
+      if (key === 'minOrder') v = String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      document.getElementById('s_' + key).value = v;
+    }
+    info.textContent = settings.updatedAt
+      ? 'Последнее изменение: ' + new Date(settings.updatedAt).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : '';
+  } catch (e) {
+    console.error(e);
+    info.textContent = 'Не получилось загрузить контакты. Закройте окно и попробуйте ещё раз.';
+  }
+}
+
+async function saveSiteSettings(e) {
+  e.preventDefault();
+  const btn = document.getElementById('siteSettingsSaveBtn');
+  const body = {};
+  for (const key of SITE_FIELDS) body[key] = document.getElementById('s_' + key).value;
+  btn.disabled = true;
+  try {
+    const res = await fetch(API_BASE + '/api/manage/site-settings', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      document.getElementById('siteSettingsInfo').textContent = '⚠️ ' + (json.error?.message || 'Не сохранилось, попробуйте ещё раз.');
+      return;
+    }
+    document.getElementById('siteSettingsOverlay').classList.add('hidden');
+    showToast('Сохранено. На сайте обновится в течение минуты.');
+  } catch (err) {
+    console.error(err);
+    document.getElementById('siteSettingsInfo').textContent = '⚠️ Нет связи с сервером, попробуйте ещё раз.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function setupSiteSettings() {
+  const overlay = document.getElementById('siteSettingsOverlay');
+  document.getElementById('siteSettingsBtn').addEventListener('click', openSiteSettingsModal);
+  document.getElementById('siteSettingsForm').addEventListener('submit', saveSiteSettings);
+  document.getElementById('siteSettingsCancelBtn').addEventListener('click', () => overlay.classList.add('hidden'));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+}
+
 function setupLogins() {
   const overlay = document.getElementById('loginsOverlay');
   document.getElementById('loginsBtn').addEventListener('click', openLoginsModal);
@@ -1615,6 +1692,7 @@ function init() {
   setupPasteAutofill();
   setupPricing();
   setupLogins();
+  setupSiteSettings();
   setupCategories();
   setupImportFile();
   document.getElementById('syncMoyskladBtn').addEventListener('click', () => syncMoysklad());

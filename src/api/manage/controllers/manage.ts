@@ -324,6 +324,68 @@ async function getPricingSettings(): Promise<PricingSettings> {
   return (saved as PricingSettings) || DEFAULT_PRICING_SETTINGS;
 }
 
+// --- Site contacts: what the storefront (rmz.business) shows as phone,
+// WhatsApp, address, hours and minimum order. Managers edit it in the cabinet
+// («📞 Контакты сайта»); the storefront reads it from the public GET below.
+type SiteSettings = {
+  whatsapp: string;        // digits, e.g. 77009915848 — orders from the cart go here
+  phone: string;           // digits — the «call» number
+  telegram: string;        // links; an empty one is hidden on the site
+  whatsappChannel: string;
+  instagram: string;
+  addressRu: string;
+  addressKz: string;
+  hoursRu: string;
+  hoursKz: string;
+  minOrder: number;        // ₸
+  updatedAt?: string;
+};
+const SITE_SETTINGS_KEY = 'siteSettings';
+const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  whatsapp: '77009915848',
+  phone: '77009915848',
+  telegram: 'https://t.me/rmz_tehniki_almaty',
+  whatsappChannel: 'https://whatsapp.com/channel/0029VaJ8LFg4tRrsQ7ts2Z3H',
+  instagram: '',
+  addressRu: 'Алматы, рынок Байсат, 10 ряд, 19 контейнер',
+  addressKz: 'Алматы, Байсат базары, 10-қатар, 19-контейнер',
+  hoursRu: 'Ежедневно 9:00–18:00',
+  hoursKz: 'Күн сайын 9:00–18:00',
+  minOrder: 100000,
+};
+
+async function getSiteSettings(): Promise<SiteSettings> {
+  const saved = (await pricingStore().get({ key: SITE_SETTINGS_KEY })) as Partial<SiteSettings> | null;
+  return { ...DEFAULT_SITE_SETTINGS, ...(saved || {}) };
+}
+
+// "8 700 991-58-48", "+7 (700) 9915848", "7009915848" -> "77009915848"; '' if it is not a phone.
+function cleanPhone(value: unknown): string {
+  let digits = String(value ?? '').replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('8')) digits = '7' + digits.slice(1);
+  if (digits.length === 10) digits = '7' + digits;
+  return digits.length >= 11 && digits.length <= 15 ? digits : '';
+}
+
+// A link the site can open: "@name" becomes the service's link, a bare
+// address gets https://. Returns null when it is not a usable link.
+function cleanLink(value: unknown, atBase: string): string | null {
+  let s = String(value ?? '').trim();
+  if (!s) return '';
+  if (s.startsWith('@')) s = atBase + s.slice(1);
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  try {
+    const url = new URL(s);
+    return url.hostname.includes('.') ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function cleanText(value: unknown, max = 200): string {
+  return String(value ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
 // costPrice -> wholesalePrice: add the markup, then round UP to the nearest
 // `roundTo` (e.g. 50) so prices look clean (450, 500, 550 — never 483.20).
 function computePrice(costPrice: number, settings: PricingSettings): number {
@@ -1098,6 +1160,55 @@ export default {
     };
     await pricingStore().set({ key: 'pricingSettings', value: settings });
     ctx.body = { settings };
+  },
+
+  // --- Site contacts. GET is public: the storefront reads it on every visit.
+  async getSiteSettings(ctx: any) {
+    ctx.set('Cache-Control', 'public, max-age=60');
+    ctx.body = { settings: await getSiteSettings() };
+  },
+
+  async saveSiteSettings(ctx: any) {
+    if (!requireAuth(ctx)) return;
+    const body = (ctx.request.body || {}) as Record<string, unknown>;
+    const next: SiteSettings = await getSiteSettings();
+    const errors: string[] = [];
+
+    for (const [key, label] of [['whatsapp', 'WhatsApp для заказов'], ['phone', 'Телефон для звонков']] as const) {
+      if (!(key in body)) continue;
+      const phone = cleanPhone(body[key]);
+      if (phone) next[key] = phone;
+      else errors.push(`«${label}»: нужен номер вида +7 700 123 45 67.`);
+    }
+    const links = [
+      ['telegram', 'Telegram', 'https://t.me/'],
+      ['whatsappChannel', 'Канал WhatsApp', 'https://whatsapp.com/channel/'],
+      ['instagram', 'Instagram', 'https://instagram.com/'],
+    ] as const;
+    for (const [key, label, atBase] of links) {
+      if (!(key in body)) continue;
+      const link = cleanLink(body[key], atBase);
+      if (link === null) errors.push(`«${label}»: ссылка не похожа на адрес сайта.`);
+      else next[key] = link;
+    }
+    for (const key of ['addressRu', 'addressKz', 'hoursRu', 'hoursKz'] as const) {
+      if (!(key in body)) continue;
+      const text = cleanText(body[key]);
+      if (text) next[key] = text;
+      else errors.push('Адрес и время работы не могут быть пустыми.');
+    }
+    if ('minOrder' in body) {
+      const sum = Math.round(Number(String(body.minOrder).replace(/\s/g, '')));
+      if (Number.isFinite(sum) && sum >= 0 && sum <= 100000000) next.minOrder = sum;
+      else errors.push('«Минимальный заказ»: нужна сумма в тенге, например 100000.');
+    }
+    if (errors.length) {
+      ctx.badRequest([...new Set(errors)].join(' '));
+      return;
+    }
+    next.updatedAt = new Date().toISOString();
+    await pricingStore().set({ key: SITE_SETTINGS_KEY, value: next });
+    ctx.body = { settings: next };
   },
 
   // Recomputes wholesalePrice = costPrice + markup (rounded) for every

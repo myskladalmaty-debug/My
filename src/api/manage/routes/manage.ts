@@ -15,6 +15,8 @@ export default {
     { method: 'POST', path: '/manage/sync-photos', handler: 'manage.syncPhotos', config: { auth: false } },
     { method: 'GET', path: '/manage/pricing-settings', handler: 'manage.getPricingSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/pricing-settings', handler: 'manage.savePricingSettings', config: { auth: false } },
+    { method: 'GET', path: '/manage/site-settings', handler: 'manage.getSiteSettings', config: { auth: false } },
+    { method: 'POST', path: '/manage/site-settings', handler: 'manage.saveSiteSettings', config: { auth: false } },
     { method: 'POST', path: '/manage/apply-pricing', handler: 'manage.applyPricing', config: { auth: false } },
     { method: 'POST', path: '/manage/find-moysklad-prices', handler: 'manage.findMoyskladPrices', config: { auth: false } },
     { method: 'POST', path: '/manage/import-file', handler: 'manage.importFile', config: { auth: false } },
