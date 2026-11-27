@@ -475,10 +475,16 @@ const FILTERS = {
 let searchText = '';
 let viewMode = (() => { try { return localStorage.getItem('sklad_manage_view') || 'grid'; } catch { return 'grid'; } })();
 
+// MoySklad writes models as "KY- 690"; managers type "KY-690", "KY 690" or
+// "ky690". The search ignores case, spaces and dashes, so all of them match.
+function searchNorm(v) {
+  return String(v ?? '').toLowerCase().replace(/[\s\-–—_.]+/g, '');
+}
+
 function filteredProducts() {
-  const q = searchText.trim().toLowerCase();
+  const q = searchNorm(searchText);
   return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter)
-    .filter(p => !q || `${p.name || ''} ${p.sku || ''} ${p.article || ''}`.toLowerCase().includes(q))
+    .filter(p => !q || [p.name, p.sku, p.article].some(v => searchNorm(v).includes(q)))
     // on-site products first, then new ones, then the rest (stable: keeps the name order inside each group)
     .sort((a, b) => (onSite(b) ? 2 : 0) + (b.isNew ? 1 : 0) - ((onSite(a) ? 2 : 0) + (a.isNew ? 1 : 0)));
 }
