@@ -44,6 +44,7 @@ const translations = {
     l_photo: 'Фото',
     l_published: 'Опубликован (виден клиентам в каталоге)',
     l_isNew: 'Новинка (отмечен в каталоге как новый товар)',
+    l_showAnyStock: 'Показывать на сайте при любом остатке (даже меньше 100 шт.)',
     badgeNew: 'Новинка',
     moreShow: '+ Ещё поля (артикул, цена, категория)',
     moreHide: '– Скрыть дополнительные поля',
@@ -167,6 +168,7 @@ const translations = {
     l_photo: 'Фото',
     l_published: 'Жарияланды (клиенттерге каталогта көрінеді)',
     l_isNew: 'Жаңа тауар (каталогта жаңа деп белгіленеді)',
+    l_showAnyStock: 'Сайтта кез келген қалдықпен көрсету (100 данадан аз болса да)',
     badgeNew: 'Жаңа',
     moreShow: '+ Қосымша өрістер (артикул, баға, санат)',
     moreHide: '– Қосымша өрістерді жасыру',
@@ -279,12 +281,12 @@ function authHeaders() {
   return { Authorization: 'Bearer ' + getToken() };
 }
 
-function showToast(msg) {
+function showToast(msg, ms = 2500) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.style.display = 'block';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => (el.style.display = 'none'), 2500);
+  showToast._t = setTimeout(() => (el.style.display = 'none'), ms);
 }
 
 function money(v) {
@@ -337,6 +339,7 @@ function applyStaticText() {
   document.getElementById('l_photo').textContent = t('l_photo');
   document.getElementById('l_published').textContent = t('l_published');
   document.getElementById('l_isNew').textContent = t('l_isNew');
+  document.getElementById('l_showAnyStock').textContent = t('l_showAnyStock');
   document.getElementById('cancelBtn').textContent = t('cancel');
   document.getElementById('saveBtn').textContent = t('save');
   document.getElementById('modalTitle').textContent = editingId ? t('modalTitleEdit') : t('modalTitleNew');
@@ -455,7 +458,9 @@ let selected = new Set(); // documentIds currently checked in the table
 // (vercel-catalog: MIN_STOCK). "На сайте" here means what clients really see;
 // a published product with less is marked "not on the site" so nobody looks for it there.
 const SITE_MIN_STOCK = 100;
-const onSite = p => p.published && (p.stock ?? 0) >= SITE_MIN_STOCK;
+// A manager can tick "show at any stock" (showAnyStock) on a product: then it
+// stays on the site below 100 pcs too, until it runs out.
+const onSite = p => p.published && ((p.stock ?? 0) >= SITE_MIN_STOCK || (!!p.showAnyStock && (p.stock ?? 0) > 0));
 
 const FILTERS = {
   all: () => true,
@@ -566,7 +571,12 @@ async function togglePublish(documentId, value) {
     if (!res.ok) throw new Error('fail');
     const p = products.find(x => x.documentId === documentId);
     if (p) p.published = value;
-    showToast(t('toastSaved'));
+    // Published but still hidden from clients (under 100 pcs): say how to show it.
+    if (p && value && !onSite(p)) {
+      showToast((p.stock ?? 0) > 0
+        ? L('Сохранено, но на сайте не видно: меньше 100 шт. Чтобы показать: «Изменить» → галочка «Показывать на сайте при любом остатке».', 'Сақталды, бірақ сайтта көрінбейді: 100 данадан аз. Көрсету үшін: «Өзгерту» → «Сайтта кез келген қалдықпен көрсету».')
+        : L('Сохранено, но на сайте не видно: товара нет в остатке.', 'Сақталды, бірақ сайтта көрінбейді: тауар қалдықта жоқ.'), 8000);
+    } else showToast(t('toastSaved'));
     renderTable();
   } catch (e) {
     console.error(e);
@@ -1011,7 +1021,7 @@ function renderTable() {
       <div class="pimg" data-edit="${p.documentId}">
         ${url ? `<img src="${escapeHtml(url)}" loading="lazy" alt="" />` : `<div class="nophoto"><b>📷</b><span>${L('нет фото', 'фото жоқ')}</span></div>`}
         <div class="pbadges">${p.isNew ? `<span class="pb new">${L('Новинка', 'Жаңа')}</span>` : ''}${onSite(p) ? `<span class="pb on">${L('На сайте', 'Сайтта')}</span>`
-          : p.published ? `<span class="pb hold" title="${L('Опубликован, но сайт показывает товар только от 100 шт.', 'Жарияланған, бірақ сайт 100 данадан бастап көрсетеді')}">${L('Нет на сайте: мало шт.', 'Сайтта жоқ: аз')}</span>`
+          : p.published ? `<span class="pb hold" title="${L('Опубликован, но сайт показывает товар только от 100 шт. Чтобы показать: «Изменить» → галочка «Показывать на сайте при любом остатке».', 'Жарияланған, бірақ сайт 100 данадан бастап көрсетеді. Көрсету үшін: «Өзгерту» → «Сайтта кез келген қалдықпен көрсету».')}">${L('Нет на сайте: мало шт.', 'Сайтта жоқ: аз')}</span>`
           : `<span class="pb off">${L('Черновик', 'Жоба')}</span>`}</div>
       </div>
       <div class="pbody">
@@ -1564,6 +1574,7 @@ function openModal(documentId) {
   document.getElementById('f_stock').value = p?.stock ?? 0;
   document.getElementById('f_published').checked = !!p?.published;
   document.getElementById('f_isNew').checked = !!p?.isNew;
+  document.getElementById('f_showAnyStock').checked = !!p?.showAnyStock;
 
   // New product: name isn't set yet, so pasting the description auto-fills it.
   // Editing: the name already exists, don't overwrite it from paste.
@@ -1622,6 +1633,7 @@ async function saveProduct(e) {
       stock: parseInt(document.getElementById('f_stock').value, 10) || 0,
       published: document.getElementById('f_published').checked,
       isNew: document.getElementById('f_isNew').checked,
+      showAnyStock: document.getElementById('f_showAnyStock').checked,
       category: categoryId,
     };
 

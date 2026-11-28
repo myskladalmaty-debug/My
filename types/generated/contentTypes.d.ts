@@ -512,6 +512,7 @@ export interface ApiProductProduct extends Struct.CollectionTypeSchema {
       Schema.Attribute.DefaultTo<false>;
     published: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     publishedAt: Schema.Attribute.DateTime;
+    showAnyStock: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     sku: Schema.Attribute.String & Schema.Attribute.Unique;
     slug: Schema.Attribute.UID<'name'>;
     stock: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;

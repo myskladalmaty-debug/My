@@ -78,6 +78,10 @@
     "arrivedAt": {
       "type": "datetime"
     },
+    "showAnyStock": {
+      "type": "boolean",
+      "default": false
+    },
     "source": {
       "type": "enumeration",
       "enum": ["manual", "file", "telegram", "moysklad"],
