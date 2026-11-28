@@ -483,7 +483,11 @@ function searchNorm(v) {
 
 function filteredProducts() {
   const q = searchNorm(searchText);
-  return products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter)
+  // A search looks through every product. The open tab ("Новинки", "На сайте")
+  // and the category would hide the very product the manager is looking for:
+  // a fresh one with under 100 pcs is neither "new" nor "on the site".
+  const base = q ? products : products.filter(FILTERS[statFilter] || FILTERS.all).filter(matchesCategoryFilter);
+  return base
     .filter(p => !q || [p.name, p.sku, p.article].some(v => searchNorm(v).includes(q)))
     // on-site products first, then new ones, then the rest (stable: keeps the name order inside each group)
     .sort((a, b) => (onSite(b) ? 2 : 0) + (b.isNew ? 1 : 0) - ((onSite(a) ? 2 : 0) + (a.isNew ? 1 : 0)));
@@ -967,7 +971,10 @@ function renderTable() {
   const list = filteredProducts();
   const countLabelEl = document.getElementById('countLabel');
   const unfiltered = statFilter === 'all' && categoryFilter === 'all';
-  if (unfiltered) {
+  const searching = !!searchNorm(searchText);
+  if (searching) {
+    countLabelEl.textContent = L(`Поиск по всем товарам, найдено: ${list.length}`, `Барлық тауарлар бойынша іздеу, табылды: ${list.length}`);
+  } else if (unfiltered) {
     // Не дублируем "Всего товаров" из карточки статистики выше — здесь
     // текст нужен только когда включён фильтр и список стал короче.
     countLabelEl.textContent = '';
@@ -982,7 +989,10 @@ function renderTable() {
   renderBulkBar();
 
   if (list.length === 0) {
-    wrap.innerHTML = `<div class="empty">${unfiltered ? t('emptyList') : t('emptyFiltered')}</div>`;
+    const emptyText = searching
+      ? L('Такого товара в кабинете нет. Проверьте название или код.', 'Мұндай тауар кабинетте жоқ. Атауын немесе кодын тексеріңіз.')
+      : unfiltered ? t('emptyList') : t('emptyFiltered');
+    wrap.innerHTML = `<div class="empty">${emptyText}</div>`;
     return;
   }
 
