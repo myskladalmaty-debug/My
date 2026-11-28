@@ -755,8 +755,12 @@ export default {
     const data = ctx.request.body;
     // Editing the price by hand (in the cabinet) protects it from being
     // overwritten later when the pricing algorithm is re-applied in bulk.
+    // A price equal to the stored one was not typed by anybody (an old open
+    // cabinet page sends every field of the form back) — it must not freeze.
     if (data.wholesalePrice !== undefined) {
-      data.priceManuallySet = true;
+      const current: any = await strapi.documents('api::product.product').findOne({ documentId: id } as any);
+      if (current && Number(current.wholesalePrice) === Number(data.wholesalePrice)) delete data.wholesalePrice;
+      else data.priceManuallySet = true;
     }
     const updated = await strapi.documents('api::product.product').update({
       documentId: id,

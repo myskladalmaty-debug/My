@@ -1547,6 +1547,27 @@ function setupPricing() {
   });
 }
 
+// What the product form held when it was opened. On save only the fields the
+// manager really changed are sent: the page may have been loaded hours ago, and
+// sending every field wrote the old stock and the old price back over what the
+// sync had brought since (and a price sent without need gets marked "typed by
+// hand" and stops following the cost).
+let formOpenedWith = null;
+function formStateOf(p) {
+  return {
+    name: (p.name || '').trim(),
+    sku: (p.sku || '').trim() || null,
+    description: (p.description || '').replace(/\r\n/g, '\n').trim() || null,
+    wholesalePrice: parseFloat(p.wholesalePrice ?? 0) || 0,
+    minOrderQty: parseInt(p.minOrderQty ?? 1, 10) || 1,
+    stock: parseInt(p.stock ?? 0, 10) || 0,
+    published: !!p.published,
+    isNew: !!p.isNew,
+    showAnyStock: !!p.showAnyStock,
+    category: p.category?.documentId || null,
+  };
+}
+
 function openModal(documentId) {
   editingId = documentId || null;
   selectedFiles = [];
@@ -1555,6 +1576,7 @@ function openModal(documentId) {
   renderPhotoPreview([]);
 
   const p = editingId ? products.find(x => x.documentId === editingId) : null;
+  formOpenedWith = p ? formStateOf(p) : null;
 
   document.getElementById('modalTitle').textContent = p ? t('modalTitleEdit') : t('modalTitleNew');
   document.getElementById('f_name').value = p?.name || '';
@@ -1637,9 +1659,23 @@ async function saveProduct(e) {
       category: categoryId,
     };
 
+    // Editing: drop every field that still holds what the form was opened with.
+    if (editingId && formOpenedWith) {
+      for (const key of Object.keys(formOpenedWith)) {
+        if (data[key] === formOpenedWith[key]) delete data[key];
+      }
+    }
+
     if (selectedFiles.length) {
       const imageIds = await uploadPhotos(selectedFiles);
       if (imageIds.length) data.images = imageIds;
+    }
+
+    // Nothing was changed: nothing to send.
+    if (editingId && !Object.keys(data).length) {
+      closeModal();
+      showToast(t('toastSaved'));
+      return;
     }
 
     const url = editingId
